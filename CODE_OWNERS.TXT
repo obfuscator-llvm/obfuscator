@@ -49,3 +49,7 @@ D: Register allocators and TableGen
 N: Duncan Sands
 E: baldrick@free.fr
 D: DragonEgg
+
+N: Obfuscator-LLVM team
+E: dev@o-llvm.org
+D: Obfuscator
