@@ -20,15 +20,6 @@ if ( LLVM_USE_FOLDERS )
   set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
-include(VersionFromVCS)
-
-option(LLVM_APPEND_VC_REV
-  "Append the version control system revision id to LLVM version" OFF)
-
-if( LLVM_APPEND_VC_REV )
-  add_version_info_from_vcs(PACKAGE_VERSION)
-endif()
-
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
 set(PACKAGE_BUGREPORT "http://o-llvm.org")
@@ -478,7 +469,6 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/
 set(CPACK_PACKAGE_VENDOR "LLVM")
 set(CPACK_PACKAGE_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${LLVM_VERSION_MINOR})
-add_version_info_from_vcs(CPACK_PACKAGE_VERSION_PATCH)
 include(CPack)
 
 # Workaround for MSVS10 to avoid the Dialog Hell
