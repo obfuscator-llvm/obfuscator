@@ -13,7 +13,7 @@ set(CMAKE_MODULE_PATH
 set(LLVM_VERSION_MAJOR 3)
 set(LLVM_VERSION_MINOR 2)
 
-set(PACKAGE_VERSION "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}svn")
+set(PACKAGE_VERSION "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}svn-obfuscator")
 
 option(LLVM_USE_FOLDERS "Enable solution folders in Visual Studio. Disable for Express versions." ON)
 if ( LLVM_USE_FOLDERS )
@@ -31,7 +31,7 @@ endif()
 
 set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "http://llvm.org/bugs/")
+set(PACKAGE_BUGREPORT "http://o-llvm.org")
 
 # Sanity check our source directory to make sure that we are not trying to
 # generate an in-tree build (unless on MSVC_IDE, where it is ok), and to make
