@@ -16,7 +16,7 @@
 
 #define DEBUG_TYPE "substitution"
  
-#define NUMBER_ADD_SUBST   4
+#define NUMBER_ADD_SUBST   5
 #define NUMBER_SUB_SUBST   3
 #define NUMBER_AND_SUBST   2
 #define NUMBER_OR_SUBST    2
@@ -58,6 +58,7 @@ namespace {
             funcAdd[1] = addDoubleNeg;
             funcAdd[2] = addRand;
             funcAdd[3] = addRand2;
+            funcAdd[4] = add32bitsAdder;
             
             funcSub[0] = subNeg;
             funcSub[1] = subRand;

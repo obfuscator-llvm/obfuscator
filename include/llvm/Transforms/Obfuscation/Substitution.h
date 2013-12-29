@@ -34,6 +34,7 @@ void addNeg(BinaryOperator *bo);
 void addDoubleNeg(BinaryOperator *bo);
 void addRand(BinaryOperator *bo);
 void addRand2(BinaryOperator *bo);
+void add32bitsAdder(BinaryOperator *bo);
 
 void subNeg(BinaryOperator *bo);
 void subRand(BinaryOperator *bo);

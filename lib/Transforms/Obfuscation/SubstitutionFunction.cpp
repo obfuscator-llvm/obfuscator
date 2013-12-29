@@ -98,6 +98,10 @@ void addRand2(BinaryOperator *bo) {
     
 }
 
+// Implementation of a manual 32 bits adder -- see Kryptonite paper here: http://0vercl0k.tuxfamily.org/bl0g/?p=260
+void add32bitsAdder(BinaryOperator *bo) {
+    #include "32bits-adder.cpp"
+}
 
 // Implementation of a = b + (-c)
 void subNeg(BinaryOperator *bo) {
