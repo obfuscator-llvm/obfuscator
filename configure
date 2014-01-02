@@ -1456,7 +1456,7 @@ Optional Packages:
   --with-binutils-include Specify path to binutils/include/ containing
                           plugin-api.h file for gold plugin.
   --with-bug-report-url   Specify the URL where bug reports should be
-                          submitted (default=http://llvm.org/bugs/)
+                          submitted (default=http://o-llvm.org)
   --with-internal-prefix  Installation directory for internal files
   --with-udis86=<path>    Use udis86 external x86 disassembler library
   --with-oprofile=<prefix>
@@ -1478,7 +1478,7 @@ Some influential environment variables:
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
 
-Report bugs to <http://llvm.org/bugs/>.
+Report bugs to <http://o-llvm.org>.
 _ACEOF
 ac_status=$?
 fi
@@ -5750,7 +5750,7 @@ fi
 if test "${with_bug_report_url+set}" = set; then
   withval=$with_bug_report_url;
 else
-  withval="http://llvm.org/bugs/"
+  withval="http://o-llvm.org"
 fi
 
 
@@ -8501,7 +8501,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -10645,7 +10645,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -11045,7 +11045,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -11217,7 +11217,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -11387,7 +11387,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -13522,7 +13522,7 @@ echo "$as_me: WARNING: opagent.h: proceeding with the preprocessor's result" >&2
 echo "$as_me: WARNING: opagent.h: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -14500,7 +14500,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -14674,7 +14674,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -14844,7 +14844,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15017,7 +15017,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15189,7 +15189,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15358,7 +15358,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15527,7 +15527,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15697,7 +15697,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -15877,7 +15877,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -16048,7 +16048,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
@@ -20090,7 +20090,7 @@ echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&
 echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     ( cat <<\_ASBOX
 ## ------------------------------------ ##
-## Report this to http://llvm.org/bugs/ ##
+## Report this to http://o-llvm.org     ##
 ## ------------------------------------ ##
 _ASBOX
      ) | sed "s/^/$as_me: WARNING:     /" >&2
