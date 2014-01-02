@@ -78,11 +78,11 @@ set(GCC_INSTALL_PREFIX "" CACHE PATH "Directory where gcc is installed." )
 set(DEFAULT_SYSROOT "" CACHE PATH
   "Default <path> to all compiler invocations for --sysroot=<path>." )
 
-set(CLANG_VENDOR "" CACHE STRING
+set(CLANG_VENDOR "Obfuscator-" CACHE STRING
   "Vendor-specific text for showing with version information.")
 
 if( CLANG_VENDOR )
-  add_definitions( -DCLANG_VENDOR="${CLANG_VENDOR} " )
+  add_definitions( -DCLANG_VENDOR="${CLANG_VENDOR}" )
 endif()
 
 set(CLANG_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
