@@ -151,3 +151,27 @@ int rdar_12075238_(unsigned long count) {
   return 0;
 }
 
+// Test that we handle an uninitialized value within a logical expression.
+void PR14635(int *p) {
+  int a = 0, b;
+  *p = a || b; // expected-warning {{Assigned value is garbage or undefined}}
+}
+
+// Test handling floating point values with unary '!'.
+int PR14634(int x) {
+  double y = (double)x;
+  return !y;
+}
+
+
+// PR15684: If a checker generates a sink node after generating a regular node
+// and no state changes between the two, graph trimming would consider the two
+// the same node, forming a loop.
+struct PR15684 {
+  void (*callback)(int);
+};
+void sinkAfterRegularNode(struct PR15684 *context) {
+  int uninitialized;
+  context->callback(uninitialized); // expected-warning {{uninitialized}}
+}
+

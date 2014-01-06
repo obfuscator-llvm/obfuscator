@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -analyze -analyzer-checker=core,unix.Malloc -verify %s
+// expected-no-diagnostics
 
 typedef struct {
     char I[4];
@@ -15,7 +16,7 @@ typedef struct {
     int cur;
     int end;
 } IB;
-inline unsigned long gl(IB *input);
+unsigned long gl(IB *input);
 inline void gbs(IB *input, unsigned char *buf, int count);
 void getB(IB *st, Hdr2 *usedtobeundef);
 inline unsigned char gb(IB *input) {

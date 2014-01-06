@@ -1,5 +1,5 @@
 ; RUN: opt < %s -sroa -S | FileCheck %s
-target datalayout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-n8:16:32:64"
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-n8:16:32:64"
 
 declare void @llvm.memcpy.p0i8.p0i8.i32(i8*, i8*, i32, i32, i1)
 
@@ -31,8 +31,8 @@ entry:
 define void @test2() {
 ; CHECK: @test2
 ; CHECK: alloca i16
-; CHECK: load i8* %{{.*}}, align 1
-; CHECK: store i8 42, i8* %{{.*}}, align 1
+; CHECK: load i8* %{{.*}}
+; CHECK: store i8 42, i8* %{{.*}}
 ; CHECK: ret void
 
 entry:
@@ -41,8 +41,8 @@ entry:
   %cast1 = bitcast i8* %gep1 to i16*
   store volatile i16 0, i16* %cast1
   %gep2 = getelementptr { i8, i8, i8, i8 }* %a, i32 0, i32 2
-  %result = load i8* %gep2, align 2
-  store i8 42, i8* %gep2, align 2
+  %result = load i8* %gep2
+  store i8 42, i8* %gep2
   ret void
 }
 
@@ -84,33 +84,88 @@ entry:
   ret void
 }
 
-%struct.S = type { i8, { i64 } }
-
-define void @test4() {
-; This test case triggered very strange alignment behavior with memcpy due to
-; strange splitting. Reported by Duncan.
-; CHECK: @test4
+define void @test5() {
+; Test that we preserve underaligned loads and stores when splitting.
+; CHECK: @test5
+; CHECK: alloca [9 x i8]
+; CHECK: alloca [9 x i8]
+; CHECK: store volatile double 0.0{{.*}}, double* %{{.*}}, align 1
+; CHECK: load i16* %{{.*}}, align 1
+; CHECK: load double* %{{.*}}, align 1
+; CHECK: store volatile double %{{.*}}, double* %{{.*}}, align 1
+; CHECK: load i16* %{{.*}}, align 1
+; CHECK: ret void
 
 entry:
-  %D.2113 = alloca %struct.S
-  %Op = alloca %struct.S
-  %D.2114 = alloca %struct.S
-  %gep1 = getelementptr inbounds %struct.S* %Op, i32 0, i32 0
-  store i8 0, i8* %gep1, align 8
-  %gep2 = getelementptr inbounds %struct.S* %Op, i32 0, i32 1, i32 0
-  %cast = bitcast i64* %gep2 to double*
-  store double 0.000000e+00, double* %cast, align 8
-  store i64 0, i64* %gep2, align 8
-  %dst1 = bitcast %struct.S* %D.2114 to i8*
-  %src1 = bitcast %struct.S* %Op to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %dst1, i8* %src1, i32 16, i32 8, i1 false)
-  %dst2 = bitcast %struct.S* %D.2113 to i8*
-  %src2 = bitcast %struct.S* %D.2114 to i8*
-  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %dst2, i8* %src2, i32 16, i32 8, i1 false)
-; We get 3 memcpy calls with various reasons to shrink their alignment to 1.
-; CHECK: @llvm.memcpy.p0i8.p0i8.i32(i8* %{{.*}}, i8* %{{.*}}, i32 3, i32 1, i1 false)
-; CHECK: @llvm.memcpy.p0i8.p0i8.i32(i8* %{{.*}}, i8* %{{.*}}, i32 8, i32 1, i1 false)
-; CHECK: @llvm.memcpy.p0i8.p0i8.i32(i8* %{{.*}}, i8* %{{.*}}, i32 11, i32 1, i1 false)
+  %a = alloca [18 x i8]
+  %raw1 = getelementptr inbounds [18 x i8]* %a, i32 0, i32 0
+  %ptr1 = bitcast i8* %raw1 to double*
+  store volatile double 0.0, double* %ptr1, align 1
+  %weird_gep1 = getelementptr inbounds [18 x i8]* %a, i32 0, i32 7
+  %weird_cast1 = bitcast i8* %weird_gep1 to i16*
+  %weird_load1 = load i16* %weird_cast1, align 1
+
+  %raw2 = getelementptr inbounds [18 x i8]* %a, i32 0, i32 9
+  %ptr2 = bitcast i8* %raw2 to double*
+  %d1 = load double* %ptr1, align 1
+  store volatile double %d1, double* %ptr2, align 1
+  %weird_gep2 = getelementptr inbounds [18 x i8]* %a, i32 0, i32 16
+  %weird_cast2 = bitcast i8* %weird_gep2 to i16*
+  %weird_load2 = load i16* %weird_cast2, align 1
 
   ret void
+}
+
+define void @test6() {
+; Test that we promote alignment when the underlying alloca switches to one
+; that innately provides it.
+; CHECK: @test6
+; CHECK: alloca double
+; CHECK: alloca double
+; CHECK-NOT: align
+; CHECK: ret void
+
+entry:
+  %a = alloca [16 x i8]
+  %raw1 = getelementptr inbounds [16 x i8]* %a, i32 0, i32 0
+  %ptr1 = bitcast i8* %raw1 to double*
+  store volatile double 0.0, double* %ptr1, align 1
+
+  %raw2 = getelementptr inbounds [16 x i8]* %a, i32 0, i32 8
+  %ptr2 = bitcast i8* %raw2 to double*
+  %val = load double* %ptr1, align 1
+  store volatile double %val, double* %ptr2, align 1
+
+  ret void
+}
+
+define void @test7(i8* %out) {
+; Test that we properly compute the destination alignment when rewriting
+; memcpys as direct loads or stores.
+; CHECK: @test7
+; CHECK-NOT: alloca
+
+entry:
+  %a = alloca [16 x i8]
+  %raw1 = getelementptr inbounds [16 x i8]* %a, i32 0, i32 0
+  %ptr1 = bitcast i8* %raw1 to double*
+  %raw2 = getelementptr inbounds [16 x i8]* %a, i32 0, i32 8
+  %ptr2 = bitcast i8* %raw2 to double*
+
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %raw1, i8* %out, i32 16, i32 0, i1 false)
+; CHECK: %[[val2:.*]] = load double* %{{.*}}, align 1
+; CHECK: %[[val1:.*]] = load double* %{{.*}}, align 1
+
+  %val1 = load double* %ptr2, align 1
+  %val2 = load double* %ptr1, align 1
+
+  store double %val1, double* %ptr1, align 1
+  store double %val2, double* %ptr2, align 1
+
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %out, i8* %raw1, i32 16, i32 0, i1 false)
+; CHECK: store double %[[val1]], double* %{{.*}}, align 1
+; CHECK: store double %[[val2]], double* %{{.*}}, align 1
+
+  ret void
+; CHECK: ret void
 }

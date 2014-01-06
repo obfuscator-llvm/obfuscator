@@ -7,34 +7,36 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/BasicBlock.h"
-#include "llvm/Constant.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalValue.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
-#include "llvm/Type.h"
-#include "llvm/TypeBuilder.h"
+#include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Assembly/Parser.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/JITMemoryManager.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/TypeBuilder.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
-
 #include "gtest/gtest.h"
 #include <vector>
 
 using namespace llvm;
 
 namespace {
+
+// Tests on ARM, PowerPC and SystemZ disabled as we're running the old jit
+#if !defined(__arm__) && !defined(__powerpc__) && !defined(__s390__)
 
 Function *makeReturnGlobal(std::string Name, GlobalVariable *G, Module *M) {
   std::vector<Type*> params;
@@ -118,13 +120,14 @@ public:
     Base->endFunctionBody(F, FunctionStart, FunctionEnd);
   }
   virtual uint8_t *allocateDataSection(uintptr_t Size, unsigned Alignment,
-                                       unsigned SectionID) {
-    return Base->allocateDataSection(Size, Alignment, SectionID);
+                                       unsigned SectionID, bool IsReadOnly) {
+    return Base->allocateDataSection(Size, Alignment, SectionID, IsReadOnly);
   }
   virtual uint8_t *allocateCodeSection(uintptr_t Size, unsigned Alignment,
                                        unsigned SectionID) {
     return Base->allocateCodeSection(Size, Alignment, SectionID);
   }
+  virtual bool applyPermissions(std::string *ErrMsg) { return false; }
   virtual uint8_t *allocateSpace(intptr_t Size, unsigned Alignment) {
     return Base->allocateSpace(Size, Alignment);
   }
@@ -161,7 +164,7 @@ public:
     uintptr_t ActualSizeResult;
   };
   std::vector<StartExceptionTableCall> startExceptionTableCalls;
-  virtual uint8_t* startExceptionTable(const Function* F,
+  virtual uint8_t *startExceptionTable(const Function *F,
                                        uintptr_t &ActualSize) {
     uintptr_t InitialActualSize = ActualSize;
     uint8_t *Result = Base->startExceptionTable(F, ActualSize);
@@ -203,14 +206,21 @@ bool LoadAssemblyInto(Module *M, const char *assembly) {
 
 class JITTest : public testing::Test {
  protected:
+  virtual RecordingJITMemoryManager *createMemoryManager() {
+    return new RecordingJITMemoryManager;
+  }
+
   virtual void SetUp() {
     M = new Module("<main>", Context);
-    RJMM = new RecordingJITMemoryManager;
+    RJMM = createMemoryManager();
     RJMM->setPoisonMemory(true);
     std::string Error;
+    TargetOptions Options;
+    Options.JITExceptionHandling = true;
     TheJIT.reset(EngineBuilder(M).setEngineKind(EngineKind::JIT)
                  .setJITMemoryManager(RJMM)
-                 .setErrorStr(&Error).create());
+                 .setErrorStr(&Error)
+                 .setTargetOptions(Options).create());
     ASSERT_TRUE(TheJIT.get() != NULL) << Error;
   }
 
@@ -292,12 +302,50 @@ TEST(JIT, GlobalInFunction) {
   EXPECT_EQ(3, *GPtr);
 }
 
+// Regression test for a bug.  The JITEmitter wasn't checking to verify that
+// it hadn't run out of space while generating the DWARF exception information
+// for an emitted function.
+
+class ExceptionMemoryManagerMock : public RecordingJITMemoryManager {
+ public:
+  virtual uint8_t *startExceptionTable(const Function *F,
+                                       uintptr_t &ActualSize) {
+    // force an insufficient size the first time through.
+    bool ChangeActualSize = false;
+    if (ActualSize == 0)
+      ChangeActualSize = true;;
+    uint8_t *result =
+      RecordingJITMemoryManager::startExceptionTable(F, ActualSize);
+    if (ChangeActualSize)
+      ActualSize = 1;
+    return result;
+  }
+};
+
+class JITExceptionMemoryTest : public JITTest {
+ protected:
+  virtual RecordingJITMemoryManager *createMemoryManager() {
+    return new ExceptionMemoryManagerMock;
+  }
+};
+
+TEST_F(JITExceptionMemoryTest, ExceptionTableOverflow) {
+  Function *F = Function::Create(TypeBuilder<void(void), false>::get(Context),
+                                 Function::ExternalLinkage,
+                                 "func1", M);
+  BasicBlock *Block = BasicBlock::Create(Context, "block", F);
+  IRBuilder<> Builder(Block);
+  Builder.CreateRetVoid();
+  TheJIT->getPointerToFunction(F);
+  ASSERT_TRUE(RJMM->startExceptionTableCalls.size() == 2);
+  ASSERT_TRUE(RJMM->deallocateExceptionTableCalls.size() == 1);
+  ASSERT_TRUE(RJMM->endExceptionTableCalls.size() == 1);
+}
+
 int PlusOne(int arg) {
   return arg + 1;
 }
 
-// ARM tests disabled pending fix for PR10783.
-#if !defined(__arm__)
 TEST_F(JITTest, FarCallToKnownFunction) {
   // x86-64 can only make direct calls to functions within 32 bits of
   // the current PC.  To call anything farther away, we have to load
@@ -475,7 +523,6 @@ TEST_F(JITTest, ModuleDeletion) {
   EXPECT_EQ(RJMM->startExceptionTableCalls.size(),
             NumTablesDeallocated);
 }
-#endif // !defined(__arm__)
 
 // ARM, MIPS and PPC still emit stubs for calls since the target may be
 // too far away to call directly.  This #if can probably be removed when
@@ -555,9 +602,8 @@ TEST_F(JITTest, FunctionPointersOutliveTheirCreator) {
 #endif
 }
 
-// ARM does not have an implementation
-// of replaceMachineCodeForFunction(), so recompileAndRelinkFunction
-// doesn't work.
+// ARM does not have an implementation of replaceMachineCodeForFunction(),
+// so recompileAndRelinkFunction doesn't work.
 #if !defined(__arm__)
 TEST_F(JITTest, FunctionIsRecompiledAndRelinked) {
   Function *F = Function::Create(TypeBuilder<int(void), false>::get(Context),
@@ -615,7 +661,6 @@ TEST_F(JITTest, AvailableExternallyGlobalIsntEmitted) {
   EXPECT_EQ(42, loader()) << "func should return 42 from the external global,"
                           << " not 7 from the IR version.";
 }
-
 }  // anonymous namespace
 // This function is intentionally defined differently in the statically-compiled
 // program from the IR input to the JIT to assert that the JIT doesn't use its
@@ -626,8 +671,6 @@ extern "C" int32_t JITTest_AvailableExternallyFunction() {
 }
 namespace {
 
-// ARM tests disabled pending fix for PR10783.
-#if !defined(__arm__)
 TEST_F(JITTest, AvailableExternallyFunctionIsntCompiled) {
   TheJIT->DisableLazyCompilation(true);
   LoadAssembly("define available_externally i32 "
@@ -783,7 +826,7 @@ TEST(LazyLoadedJITTest, EagerCompiledRecursionThroughGhost) {
     (intptr_t)TheJIT->getPointerToFunction(recur1IR));
   EXPECT_EQ(3, recur1(4));
 }
-#endif // !defined(__arm__)
+#endif // !defined(__arm__) && !defined(__powerpc__) && !defined(__s390__)
 
 // This code is copied from JITEventListenerTest, but it only runs once for all
 // the tests in this directory.  Everything seems fine, but that's strange

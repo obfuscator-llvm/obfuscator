@@ -1,6 +1,0 @@
-config.h
-AsmPrinters.def
-Targets.def
-AsmParsers.def
-Disassemblers.def
-llvm-config.h

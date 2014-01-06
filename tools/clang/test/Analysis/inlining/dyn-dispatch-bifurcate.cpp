@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -analyze -analyzer-checker=core,debug.ExprInspection -analyzer-ipa=dynamic-bifurcate -verify %s
+// RUN: %clang_cc1 -analyze -analyzer-checker=core,debug.ExprInspection -analyzer-config ipa=dynamic-bifurcate -verify %s
 
 void clang_analyzer_eval(bool);
 
@@ -14,6 +14,11 @@ void testBifurcation(A *a) {
 void testKnown() {
   A a;
   clang_analyzer_eval(a.get() == 0); // expected-warning{{TRUE}}
+}
+
+void testNew() {
+  A *a = new A();
+  clang_analyzer_eval(a->get() == 0); // expected-warning{{TRUE}}
 }
 
 

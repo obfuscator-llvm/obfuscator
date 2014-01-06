@@ -1,4 +1,4 @@
-// RUN: %clang %s -ffreestanding -fsyntax-only -Xclang -verify -pedantic -fpascal-strings -std=c99
+// RUN: %clang %s -ffreestanding -Wno-int-to-pointer-cast -fsyntax-only -Xclang -verify -pedantic -fpascal-strings -std=c99
 
 #include <stdint.h>
 #include <limits.h>
@@ -73,3 +73,5 @@ int illegaldiv4[0 / (1 / 0)]; // expected-error {{variable length array declarat
 int chooseexpr[__builtin_choose_expr(1, 1, expr)];
 int realop[(__real__ 4) == 4 ? 1 : -1];
 int imagop[(__imag__ 4) == 0 ? 1 : -1];
+
+int *PR14729 = 0 ?: 1/0; // expected-error {{not a compile-time constant}} expected-warning 3{{}}

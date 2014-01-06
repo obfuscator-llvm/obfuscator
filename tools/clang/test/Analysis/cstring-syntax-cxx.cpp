@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -analyze -analyzer-checker=unix.cstring.BadSizeArg -analyzer-store=region -verify %s
+// expected-no-diagnostics
 
 // Ensure we don't crash on C++ declarations with special names.
 struct X {
@@ -14,3 +15,8 @@ void test(X a, X b) {
   X c = a + b;
 }
 
+// Ensure we don't crash on custom-defined strncat.
+char strncat ();
+int main () {
+  return strncat ();
+}

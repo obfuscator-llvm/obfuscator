@@ -1,7 +1,6 @@
 # RUN: llvm-mc  %s -triple=mipsel-unknown-linux -show-encoding -mcpu=mips32r2 | FileCheck %s
 # Check that the assembler can handle the documented syntax
 # for FPU instructions.
-# CHECK: .section __TEXT,__text,regular,pure_instructions
 #------------------------------------------------------------------------------
 # FP aritmetic  instructions
 #------------------------------------------------------------------------------
@@ -149,6 +148,16 @@
 # CHECK:  mthi    $7                   # encoding: [0x11,0x00,0xe0,0x00]
 # CHECK:  mtlo    $7                   # encoding: [0x13,0x00,0xe0,0x00]
 # CHECK:  swc1    $f9, 9158($7)        # encoding: [0xc6,0x23,0xe9,0xe4]
+# CHECK:  mfc0    $6, $7, 0               # encoding: [0x00,0x38,0x06,0x40]
+# CHECK:  mtc0    $9, $8, 0               # encoding: [0x00,0x40,0x89,0x40]
+# CHECK:  mfc2    $5, $7, 0               # encoding: [0x00,0x38,0x05,0x48]
+# CHECK:  mtc2    $9, $4, 0               # encoding: [0x00,0x20,0x89,0x48]
+# CHECK:  mfc0    $6, $7, 2               # encoding: [0x02,0x38,0x06,0x40]
+# CHECK:  mtc0    $9, $8, 3               # encoding: [0x03,0x40,0x89,0x40]
+# CHECK:  mfc2    $5, $7, 4               # encoding: [0x04,0x38,0x05,0x48]
+# CHECK:  mtc2    $9, $4, 5               # encoding: [0x05,0x20,0x89,0x48]
+# CHECK:  movf    $2, $1, $fcc0           # encoding: [0x01,0x10,0x20,0x00]
+# CHECK:  movt    $2, $1, $fcc0           # encoding: [0x01,0x10,0x21,0x00]
 
    cfc1    $a2,$0
    mfc1    $a2,$f7
@@ -160,3 +169,13 @@
    mthi    $a3
    mtlo    $a3
    swc1    $f9,9158($a3)
+   mfc0    $6, $7
+   mtc0    $9, $8
+   mfc2    $5, $7
+   mtc2    $9, $4
+   mfc0    $6, $7, 2
+   mtc0    $9, $8, 3
+   mfc2    $5, $7, 4
+   mtc2    $9, $4, 5
+   movf    $2, $1, $fcc0
+   movt    $2, $1, $fcc0

@@ -64,12 +64,12 @@ public:
     return getSubExpr()->FindAssociatedSection();
   }
 
+  // There are no TLS ARMMCExprs at the moment.
+  void fixELFSymbolsInTLSFixups(MCAssembler &Asm) const {}
+
   static bool classof(const MCExpr *E) {
     return E->getKind() == MCExpr::Target;
   }
-
-  static bool classof(const ARMMCExpr *) { return true; }
-
 };
 } // end namespace llvm
 

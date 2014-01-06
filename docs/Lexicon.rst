@@ -1,5 +1,3 @@
-.. _lexicon:
-
 ================
 The LLVM Lexicon
 ================
@@ -17,11 +15,30 @@ A
 **ADCE**
     Aggressive Dead Code Elimination
 
+**AST**
+    Abstract Syntax Tree.
+
+    Due to Clang's influence (mostly the fact that parsing and semantic
+    analysis are so intertwined for C and especially C++), the typical
+    working definition of AST in the LLVM community is roughly "the
+    compiler's first complete symbolic (as opposed to textual)
+    representation of an input program".
+    As such, an "AST" might be a more general graph instead of a "tree"
+    (consider the symbolic representation for the type of a typical "linked
+    list node"). This working definition is closer to what some authors
+    call an "annotated abstract syntax tree".
+
+    Consult your favorite compiler book or search engine for more details.
+
 B
 -
 
-**BURS**
+.. _lexicon-bb-vectorization:
 
+**BB Vectorization**
+    Basic-Block Vectorization
+
+**BURS**
     Bottom Up Rewriting System --- A method of instruction selection for code
     generation.  An example is the `BURG
     <http://www.program-transformation.org/Transform/BURG>`_ tool.
@@ -156,7 +173,7 @@ R
     In garbage collection, a pointer variable lying outside of the `heap`_ from
     which the collector begins its reachability analysis. In the context of code
     generation, "root" almost always refers to a "stack root" --- a local or
-    temporary variable within an executing function.</dd>
+    temporary variable within an executing function.
 
 **RPO**
     Reverse postorder
@@ -183,6 +200,10 @@ S
 **SCCP**
     Sparse Conditional Constant Propagation
 
+**SLP**
+    Superword-Level Parallelism, same as :ref:`Basic-Block Vectorization
+    <lexicon-bb-vectorization>`.
+
 **SRoA**
     Scalar Replacement of Aggregates
 
@@ -192,3 +213,10 @@ S
 **Stack Map**
     In garbage collection, metadata emitted by the code generator which
     identifies `roots`_ within the stack frame of an executing function.
+
+T
+-
+
+**TBAA**
+    Type-Based Alias Analysis
+

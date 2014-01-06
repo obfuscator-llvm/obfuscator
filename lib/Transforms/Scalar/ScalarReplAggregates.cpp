@@ -21,32 +21,32 @@
 
 #define DEBUG_TYPE "scalarrepl"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Constants.h"
-#include "llvm/DIBuilder.h"
-#include "llvm/DebugInfo.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
-#include "llvm/Operator.h"
-#include "llvm/Pass.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/DIBuilder.h"
+#include "llvm/DebugInfo.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
@@ -87,7 +87,7 @@ namespace {
 
   private:
     bool HasDomTree;
-    TargetData *TD;
+    DataLayout *TD;
 
     /// DeadInsts - Keep track of instructions we have made dead, so that
     /// we can remove them after we are done working.
@@ -258,7 +258,7 @@ namespace {
 class ConvertToScalarInfo {
   /// AllocaSize - The size of the alloca being considered in bytes.
   unsigned AllocaSize;
-  const TargetData &TD;
+  const DataLayout &TD;
   unsigned ScalarLoadThreshold;
 
   /// IsNotTrivial - This is set to true if there is some access to the object
@@ -301,7 +301,7 @@ class ConvertToScalarInfo {
   bool HadDynamicAccess;
 
 public:
-  explicit ConvertToScalarInfo(unsigned Size, const TargetData &td,
+  explicit ConvertToScalarInfo(unsigned Size, const DataLayout &td,
                                unsigned SLT)
     : AllocaSize(Size), TD(td), ScalarLoadThreshold(SLT), IsNotTrivial(false),
     ScalarKind(Unknown), VectorTy(0), HadNonMemTransferAccess(false),
@@ -1020,11 +1020,11 @@ ConvertScalar_InsertValue(Value *SV, Value *Old,
 
 
 bool SROA::runOnFunction(Function &F) {
-  TD = getAnalysisIfAvailable<TargetData>();
+  TD = getAnalysisIfAvailable<DataLayout>();
 
   bool Changed = performPromotion(F);
 
-  // FIXME: ScalarRepl currently depends on TargetData more than it
+  // FIXME: ScalarRepl currently depends on DataLayout more than it
   // theoretically needs to. It should be refactored in order to support
   // target-independent IR. Until this is done, just skip the actual
   // scalar-replacement portion of this pass.
@@ -1134,7 +1134,7 @@ public:
 ///
 /// We can do this to a select if its only uses are loads and if the operand to
 /// the select can be loaded unconditionally.
-static bool isSafeSelectToSpeculate(SelectInst *SI, const TargetData *TD) {
+static bool isSafeSelectToSpeculate(SelectInst *SI, const DataLayout *TD) {
   bool TDerefable = SI->getTrueValue()->isDereferenceablePointer();
   bool FDerefable = SI->getFalseValue()->isDereferenceablePointer();
 
@@ -1172,7 +1172,7 @@ static bool isSafeSelectToSpeculate(SelectInst *SI, const TargetData *TD) {
 ///
 /// We can do this to a select if its only uses are loads and if the operand to
 /// the select can be loaded unconditionally.
-static bool isSafePHIToSpeculate(PHINode *PN, const TargetData *TD) {
+static bool isSafePHIToSpeculate(PHINode *PN, const DataLayout *TD) {
   // For now, we can only do this promotion if the load is in the same block as
   // the PHI, and if there are no stores between the phi and load.
   // TODO: Allow recursive phi users.
@@ -1236,7 +1236,7 @@ static bool isSafePHIToSpeculate(PHINode *PN, const TargetData *TD) {
 /// direct (non-volatile) loads and stores to it.  If the alloca is close but
 /// not quite there, this will transform the code to allow promotion.  As such,
 /// it is a non-pure predicate.
-static bool tryToMakeAllocaBePromotable(AllocaInst *AI, const TargetData *TD) {
+static bool tryToMakeAllocaBePromotable(AllocaInst *AI, const DataLayout *TD) {
   SetVector<Instruction*, SmallVector<Instruction*, 4>,
             SmallPtrSet<Instruction*, 4> > InstsToRewrite;
 
@@ -1462,8 +1462,8 @@ bool SROA::ShouldAttemptScalarRepl(AllocaInst *AI) {
 }
 
 // performScalarRepl - This algorithm is a simple worklist driven algorithm,
-// which runs on all of the alloca instructions in the function, removing them
-// if they are only used by getelementptr instructions.
+// which runs on all of the alloca instructions in the entry block, removing
+// them if they are only used by getelementptr instructions.
 //
 bool SROA::performScalarRepl(Function &F) {
   std::vector<AllocaInst*> WorkList;
@@ -1724,17 +1724,8 @@ void SROA::isSafeGEP(GetElementPtrInst *GEPI,
       continue;
 
     ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPIt.getOperand());
-    if (!IdxVal) {
-      // Non constant GEPs are only a problem on arrays, structs, and pointers
-      // Vectors can be dynamically indexed.
-      // FIXME: Add support for dynamic indexing on arrays.  This should be
-      // ok on any subarrays of the alloca array, eg, a[0][i] is ok, but a[i][0]
-      // isn't.
-      if (!(*GEPIt)->isVectorTy())
-        return MarkUnsafe(Info, GEPI);
-      NonConstant = true;
-      NonConstantIdxSize = TD->getTypeAllocSize(*GEPIt);
-    }
+    if (!IdxVal)
+      return MarkUnsafe(Info, GEPI);
   }
 
   // Compute the offset due to this GEP and check if the alloca has a
@@ -2537,7 +2528,7 @@ void SROA::RewriteLoadUserOfWholeAlloca(LoadInst *LI, AllocaInst *AI,
 /// HasPadding - Return true if the specified type has any structure or
 /// alignment padding in between the elements that would be split apart
 /// by SROA; return false otherwise.
-static bool HasPadding(Type *Ty, const TargetData &TD) {
+static bool HasPadding(Type *Ty, const DataLayout &TD) {
   if (ArrayType *ATy = dyn_cast<ArrayType>(Ty)) {
     Ty = ATy->getElementType();
     return TD.getTypeSizeInBits(Ty) != TD.getTypeAllocSizeInBits(Ty);

@@ -62,3 +62,17 @@ void foobar()
 }
 
 }
+
+namespace b6981007 {
+  struct S {}; // expected-note 3{{candidate}}
+  void f() {
+    S s(1, 2, 3); // expected-error {{no matching}}
+    for (auto x : s) {
+      // We used to attempt to evaluate the initializer of this variable,
+      // and crash because it has an undeduced type.
+      // FIXME: We should set the loop variable to be invalid if we can't build
+      // the loop, to suppress this follow-on error.
+      const int &n(x); // expected-error {{could not bind to an lvalue of type 'auto'}}
+    }
+  }
+}

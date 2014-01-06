@@ -11,6 +11,7 @@
 #define LLVM_CLANG_ARCMIGRATE_ARCMT_H
 
 #include "clang/ARCMigrate/FileRemapper.h"
+#include "clang/Basic/SourceLocation.h"
 #include "clang/Frontend/CompilerInvocation.h"
 
 namespace clang {

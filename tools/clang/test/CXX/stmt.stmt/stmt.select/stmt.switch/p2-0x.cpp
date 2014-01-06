@@ -1,13 +1,14 @@
 // RUN: %clang_cc1 -std=c++11 %s -verify
+// expected-no-diagnostics
 
 struct Value {
   constexpr Value(int n) : n(n) {}
-  constexpr operator short() { return n; }
+  constexpr operator short() const { return n; }
   int n;
 };
 enum E { E0, E1 };
 struct Alt {
-  constexpr operator E() { return E0; }
+  constexpr operator E() const { return E0; }
 };
 
 constexpr short s = Alt();

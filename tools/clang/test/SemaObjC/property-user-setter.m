@@ -85,11 +85,11 @@ static int g_val;
 - (void)setFoo:(int)value;
 @end
 
-void g(int); // expected-note {{passing argument to parameter here}}
+void g(int);
 
 void f(C *c) {
     c.Foo = 17; // OK 
-    g(c.Foo); // expected-error {{expected getter method not found on object of type 'C *'}}
+    g(c.Foo); // expected-error {{no getter method for read from property}}
 }
 
 
@@ -132,7 +132,7 @@ int main (void) {
   self.Pxyz = 0; // expected-error {{synthesized properties 'Pxyz' and 'pxyz' both claim setter 'setPxyz:'}}
   self.pxyz = 0; // expected-error {{synthesized properties 'pxyz' and 'Pxyz' both claim setter 'setPxyz:'}}
   self.R = 0;
-  return self.R; // expected-error {{expected getter method not found on object of type 'rdar11363363 *'}}
+  return self.R; // expected-error {{no getter method for read from property}}
 }
 @end
 

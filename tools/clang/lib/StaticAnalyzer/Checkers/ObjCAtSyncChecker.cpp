@@ -14,10 +14,10 @@
 
 #include "ClangSACheckers.h"
 #include "clang/AST/StmtObjC.h"
+#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
 
 using namespace clang;
@@ -42,7 +42,7 @@ void ObjCAtSyncChecker::checkPreStmt(const ObjCAtSynchronizedStmt *S,
   SVal V = state->getSVal(Ex, C.getLocationContext());
 
   // Uninitialized value used for the mutex?
-  if (isa<UndefinedVal>(V)) {
+  if (V.getAs<UndefinedVal>()) {
     if (ExplodedNode *N = C.generateSink()) {
       if (!BT_undef)
         BT_undef.reset(new BuiltinBug("Uninitialized value used as mutex "
@@ -50,7 +50,7 @@ void ObjCAtSyncChecker::checkPreStmt(const ObjCAtSynchronizedStmt *S,
       BugReport *report =
         new BugReport(*BT_undef, BT_undef->getDescription(), N);
       bugreporter::trackNullOrUndefValue(N, Ex, *report);
-      C.EmitReport(report);
+      C.emitReport(report);
     }
     return;
   }
@@ -60,7 +60,7 @@ void ObjCAtSyncChecker::checkPreStmt(const ObjCAtSynchronizedStmt *S,
 
   // Check for null mutexes.
   ProgramStateRef notNullState, nullState;
-  llvm::tie(notNullState, nullState) = state->assume(cast<DefinedSVal>(V));
+  llvm::tie(notNullState, nullState) = state->assume(V.castAs<DefinedSVal>());
 
   if (nullState) {
     if (!notNullState) {
@@ -74,7 +74,7 @@ void ObjCAtSyncChecker::checkPreStmt(const ObjCAtSynchronizedStmt *S,
           new BugReport(*BT_null, BT_null->getDescription(), N);
         bugreporter::trackNullOrUndefValue(N, Ex, *report);
 
-        C.EmitReport(report);
+        C.emitReport(report);
         return;
       }
     }

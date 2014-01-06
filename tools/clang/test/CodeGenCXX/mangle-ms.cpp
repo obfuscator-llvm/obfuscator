@@ -3,6 +3,7 @@
 
 // CHECK: @"\01?a@@3HA"
 // CHECK: @"\01?b@N@@3HA"
+// CHECK: @"\01?anonymous@?A@N@@3HA"
 // CHECK: @c
 // CHECK: @"\01?d@foo@@0FB"
 // CHECK: @"\01?e@foo@@1JC"
@@ -16,18 +17,21 @@
 // CHECK: @"\01?l@@3P8foo@@AEHH@ZA"
 // CHECK: @"\01?color1@@3PANA"
 // CHECK: @"\01?color2@@3QBNB"
-
-// FIXME: The following three tests currently fail, see http://llvm.org/PR13182
-// Replace "CHECK-NOT" with "CHECK" when it is fixed.
-// CHECK-NOT: @"\01?color3@@3QAY02$$CBNA"
-// CHECK-NOT: @"\01?color4@@3QAY02$$CBNA"
+// CHECK: @"\01?color3@@3QAY02$$CBNA"
+// CHECK: @"\01?color4@@3QAY02$$CBNA"
 
 int a;
 
-namespace N { int b; }
+namespace N {
+  int b;
+
+  namespace {
+    int anonymous;
+  }
+}
 
 static int c;
-int _c(void) {return c;}
+int _c(void) {return N::anonymous + c;}
 // CHECK: @"\01?_c@@YAHXZ"
 
 class foo {

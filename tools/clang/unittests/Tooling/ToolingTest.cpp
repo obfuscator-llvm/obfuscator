@@ -10,6 +10,7 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclGroup.h"
+#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Tooling/CompilationDatabase.h"
@@ -97,9 +98,9 @@ TEST(runToolOnCode, FindsClassDecl) {
 }
 
 TEST(newFrontendActionFactory, CreatesFrontendActionFactoryFromType) {
-  llvm::OwningPtr<FrontendActionFactory> Factory(
-    newFrontendActionFactory<SyntaxOnlyAction>());
-  llvm::OwningPtr<FrontendAction> Action(Factory->create());
+  OwningPtr<FrontendActionFactory> Factory(
+      newFrontendActionFactory<SyntaxOnlyAction>());
+  OwningPtr<FrontendAction> Action(Factory->create());
   EXPECT_TRUE(Action.get() != NULL);
 }
 
@@ -111,9 +112,9 @@ struct IndependentFrontendActionCreator {
 
 TEST(newFrontendActionFactory, CreatesFrontendActionFactoryFromFactoryType) {
   IndependentFrontendActionCreator Creator;
-  llvm::OwningPtr<FrontendActionFactory> Factory(
-    newFrontendActionFactory(&Creator));
-  llvm::OwningPtr<FrontendAction> Action(Factory->create());
+  OwningPtr<FrontendActionFactory> Factory(
+      newFrontendActionFactory(&Creator));
+  OwningPtr<FrontendAction> Action(Factory->create());
   EXPECT_TRUE(Action.get() != NULL);
 }
 
@@ -128,6 +129,61 @@ TEST(ToolInvocation, TestMapVirtualFile) {
   Invocation.mapVirtualFile("test.cpp", "#include <abc>\n");
   Invocation.mapVirtualFile("def/abc", "\n");
   EXPECT_TRUE(Invocation.run());
+}
+
+struct VerifyEndCallback : public EndOfSourceFileCallback {
+  VerifyEndCallback() : Called(0), Matched(false) {}
+  virtual void run() {
+    ++Called;
+  }
+  ASTConsumer *newASTConsumer() {
+    return new FindTopLevelDeclConsumer(&Matched);
+  }
+  unsigned Called;
+  bool Matched;
+};
+
+#if !defined(_WIN32)
+TEST(newFrontendActionFactory, InjectsEndOfSourceFileCallback) {
+  VerifyEndCallback EndCallback;
+
+  FixedCompilationDatabase Compilations("/", std::vector<std::string>());
+  std::vector<std::string> Sources;
+  Sources.push_back("/a.cc");
+  Sources.push_back("/b.cc");
+  ClangTool Tool(Compilations, Sources);
+
+  Tool.mapVirtualFile("/a.cc", "void a() {}");
+  Tool.mapVirtualFile("/b.cc", "void b() {}");
+
+  Tool.run(newFrontendActionFactory(&EndCallback, &EndCallback));
+
+  EXPECT_TRUE(EndCallback.Matched);
+  EXPECT_EQ(2u, EndCallback.Called);
+}
+#endif
+
+struct SkipBodyConsumer : public clang::ASTConsumer {
+  /// Skip the 'skipMe' function.
+  virtual bool shouldSkipFunctionBody(Decl *D) {
+    FunctionDecl *F = dyn_cast<FunctionDecl>(D);
+    return F && F->getNameAsString() == "skipMe";
+  }
+};
+
+struct SkipBodyAction : public clang::ASTFrontendAction {
+  virtual ASTConsumer *CreateASTConsumer(CompilerInstance &Compiler,
+                                         StringRef) {
+    Compiler.getFrontendOpts().SkipFunctionBodies = true;
+    return new SkipBodyConsumer;
+  }
+};
+
+TEST(runToolOnCode, TestSkipFunctionBody) {
+  EXPECT_TRUE(runToolOnCode(new SkipBodyAction,
+                            "int skipMe() { an_error_here }"));
+  EXPECT_FALSE(runToolOnCode(new SkipBodyAction,
+                             "int skipMeNot() { an_error_here }"));
 }
 
 } // end namespace tooling

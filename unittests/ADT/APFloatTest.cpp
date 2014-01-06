@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <ostream>
-#include <string>
-#include "llvm/Support/raw_ostream.h"
-#include "gtest/gtest.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/raw_ostream.h"
+#include "gtest/gtest.h"
+#include <ostream>
+#include <string>
 
 using namespace llvm;
 
@@ -32,6 +32,58 @@ static std::string convertToString(double d, unsigned Prec, unsigned Pad) {
 }
 
 namespace {
+
+TEST(APFloatTest, Denormal) {
+  APFloat::roundingMode rdmd = APFloat::rmNearestTiesToEven;
+
+  // Test single precision
+  {
+    const char *MinNormalStr = "1.17549435082228750797e-38";
+    EXPECT_FALSE(APFloat(APFloat::IEEEsingle, MinNormalStr).isDenormal());
+    EXPECT_FALSE(APFloat(APFloat::IEEEsingle, 0.0).isDenormal());
+
+    APFloat Val2(APFloat::IEEEsingle, 2.0e0);
+    APFloat T(APFloat::IEEEsingle, MinNormalStr);
+    T.divide(Val2, rdmd);
+    EXPECT_TRUE(T.isDenormal());
+  }
+
+  // Test double precision
+  {
+    const char *MinNormalStr = "2.22507385850720138309e-308";
+    EXPECT_FALSE(APFloat(APFloat::IEEEdouble, MinNormalStr).isDenormal());
+    EXPECT_FALSE(APFloat(APFloat::IEEEdouble, 0.0).isDenormal());
+
+    APFloat Val2(APFloat::IEEEdouble, 2.0e0);
+    APFloat T(APFloat::IEEEdouble, MinNormalStr);
+    T.divide(Val2, rdmd);
+    EXPECT_TRUE(T.isDenormal());
+  }
+
+  // Test Intel double-ext
+  {
+    const char *MinNormalStr = "3.36210314311209350626e-4932";
+    EXPECT_FALSE(APFloat(APFloat::x87DoubleExtended, MinNormalStr).isDenormal());
+    EXPECT_FALSE(APFloat(APFloat::x87DoubleExtended, 0.0).isDenormal());
+
+    APFloat Val2(APFloat::x87DoubleExtended, 2.0e0);
+    APFloat T(APFloat::x87DoubleExtended, MinNormalStr);
+    T.divide(Val2, rdmd);
+    EXPECT_TRUE(T.isDenormal());
+  }
+
+  // Test quadruple precision
+  {
+    const char *MinNormalStr = "3.36210314311209350626267781732175260e-4932";
+    EXPECT_FALSE(APFloat(APFloat::IEEEquad, MinNormalStr).isDenormal());
+    EXPECT_FALSE(APFloat(APFloat::IEEEquad, 0.0).isDenormal());
+
+    APFloat Val2(APFloat::IEEEquad, 2.0e0);
+    APFloat T(APFloat::IEEEquad, MinNormalStr);
+    T.divide(Val2, rdmd);
+    EXPECT_TRUE(T.isDenormal());
+  }
+}
 
 TEST(APFloatTest, Zero) {
   EXPECT_EQ(0.0f,  APFloat(0.0f).convertToFloat());
@@ -635,6 +687,12 @@ TEST(APFloatTest, exactInverse) {
   EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(0.5)));
   EXPECT_TRUE(APFloat(2.0f).getExactInverse(&inv));
   EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(0.5f)));
+  EXPECT_TRUE(APFloat(APFloat::IEEEquad, "2.0").getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(APFloat::IEEEquad, "0.5")));
+  EXPECT_TRUE(APFloat(APFloat::PPCDoubleDouble, "2.0").getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(APFloat::PPCDoubleDouble, "0.5")));
+  EXPECT_TRUE(APFloat(APFloat::x87DoubleExtended, "2.0").getExactInverse(&inv));
+  EXPECT_TRUE(inv.bitwiseIsEqual(APFloat(APFloat::x87DoubleExtended, "0.5")));
 
   // FLT_MIN
   EXPECT_TRUE(APFloat(1.17549435e-38f).getExactInverse(&inv));
@@ -736,5 +794,67 @@ TEST(APFloatTest, convert) {
   test.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &losesInfo);
   EXPECT_EQ(4294967295.0, test.convertToDouble());
   EXPECT_FALSE(losesInfo);
+
+  test = APFloat::getSNaN(APFloat::IEEEsingle);
+  APFloat X87SNaN = APFloat::getSNaN(APFloat::x87DoubleExtended);
+  test.convert(APFloat::x87DoubleExtended, APFloat::rmNearestTiesToEven,
+               &losesInfo);
+  EXPECT_TRUE(test.bitwiseIsEqual(X87SNaN));
+  EXPECT_FALSE(losesInfo);
+
+  test = APFloat::getQNaN(APFloat::IEEEsingle);
+  APFloat X87QNaN = APFloat::getQNaN(APFloat::x87DoubleExtended);
+  test.convert(APFloat::x87DoubleExtended, APFloat::rmNearestTiesToEven,
+               &losesInfo);
+  EXPECT_TRUE(test.bitwiseIsEqual(X87QNaN));
+  EXPECT_FALSE(losesInfo);
+
+  test = APFloat::getSNaN(APFloat::x87DoubleExtended);
+  test.convert(APFloat::x87DoubleExtended, APFloat::rmNearestTiesToEven,
+               &losesInfo);
+  EXPECT_TRUE(test.bitwiseIsEqual(X87SNaN));
+  EXPECT_FALSE(losesInfo);
+
+  test = APFloat::getQNaN(APFloat::x87DoubleExtended);
+  test.convert(APFloat::x87DoubleExtended, APFloat::rmNearestTiesToEven,
+               &losesInfo);
+  EXPECT_TRUE(test.bitwiseIsEqual(X87QNaN));
+  EXPECT_FALSE(losesInfo);
+}
+
+TEST(APFloatTest, PPCDoubleDouble) {
+  APFloat test(APFloat::PPCDoubleDouble, "1.0");
+  EXPECT_EQ(0x3ff0000000000000ull, test.bitcastToAPInt().getRawData()[0]);
+  EXPECT_EQ(0x0000000000000000ull, test.bitcastToAPInt().getRawData()[1]);
+
+  test.divide(APFloat(APFloat::PPCDoubleDouble, "3.0"), APFloat::rmNearestTiesToEven);
+  EXPECT_EQ(0x3fd5555555555555ull, test.bitcastToAPInt().getRawData()[0]);
+  EXPECT_EQ(0x3c75555555555556ull, test.bitcastToAPInt().getRawData()[1]);
+
+  // LDBL_MAX
+  test = APFloat(APFloat::PPCDoubleDouble, "1.79769313486231580793728971405301e+308");
+  EXPECT_EQ(0x7fefffffffffffffull, test.bitcastToAPInt().getRawData()[0]);
+  EXPECT_EQ(0x7c8ffffffffffffeull, test.bitcastToAPInt().getRawData()[1]);
+
+  // LDBL_MIN
+  test = APFloat(APFloat::PPCDoubleDouble, "2.00416836000897277799610805135016e-292");
+  EXPECT_EQ(0x0360000000000000ull, test.bitcastToAPInt().getRawData()[0]);
+  EXPECT_EQ(0x0000000000000000ull, test.bitcastToAPInt().getRawData()[1]);
+
+  test = APFloat(APFloat::PPCDoubleDouble, "1.0");
+  test.add(APFloat(APFloat::PPCDoubleDouble, "0x1p-105"), APFloat::rmNearestTiesToEven);
+  EXPECT_EQ(0x3ff0000000000000ull, test.bitcastToAPInt().getRawData()[0]);
+  EXPECT_EQ(0x3960000000000000ull, test.bitcastToAPInt().getRawData()[1]);
+
+  test = APFloat(APFloat::PPCDoubleDouble, "1.0");
+  test.add(APFloat(APFloat::PPCDoubleDouble, "0x1p-106"), APFloat::rmNearestTiesToEven);
+  EXPECT_EQ(0x3ff0000000000000ull, test.bitcastToAPInt().getRawData()[0]);
+#if 0 // XFAIL
+  // This is what we would expect with a true double-double implementation
+  EXPECT_EQ(0x3950000000000000ull, test.bitcastToAPInt().getRawData()[1]);
+#else
+  // This is what we get with our 106-bit mantissa approximation
+  EXPECT_EQ(0x0000000000000000ull, test.bitcastToAPInt().getRawData()[1]);
+#endif
 }
 }

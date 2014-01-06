@@ -13,12 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/TargetSchedule.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -36,6 +36,21 @@ bool TargetSchedModel::hasInstrItineraries() const {
   return EnableSchedItins && !InstrItins.isEmpty();
 }
 
+static unsigned gcd(unsigned Dividend, unsigned Divisor) {
+  // Dividend and Divisor will be naturally swapped as needed.
+  while(Divisor) {
+    unsigned Rem = Dividend % Divisor;
+    Dividend = Divisor;
+    Divisor = Rem;
+  };
+  return Dividend;
+}
+static unsigned lcm(unsigned A, unsigned B) {
+  unsigned LCM = (uint64_t(A) * B) / gcd(A, B);
+  assert((LCM >= A && LCM >= B) && "LCM overflow");
+  return LCM;
+}
+
 void TargetSchedModel::init(const MCSchedModel &sm,
                             const TargetSubtargetInfo *sti,
                             const TargetInstrInfo *tii) {
@@ -43,19 +58,43 @@ void TargetSchedModel::init(const MCSchedModel &sm,
   STI = sti;
   TII = tii;
   STI->initInstrItins(InstrItins);
+
+  unsigned NumRes = SchedModel.getNumProcResourceKinds();
+  ResourceFactors.resize(NumRes);
+  ResourceLCM = SchedModel.IssueWidth;
+  for (unsigned Idx = 0; Idx < NumRes; ++Idx) {
+    unsigned NumUnits = SchedModel.getProcResource(Idx)->NumUnits;
+    if (NumUnits > 0)
+      ResourceLCM = lcm(ResourceLCM, NumUnits);
+  }
+  MicroOpFactor = ResourceLCM / SchedModel.IssueWidth;
+  for (unsigned Idx = 0; Idx < NumRes; ++Idx) {
+    unsigned NumUnits = SchedModel.getProcResource(Idx)->NumUnits;
+    ResourceFactors[Idx] = NumUnits ? (ResourceLCM / NumUnits) : 0;
+  }
 }
 
-unsigned TargetSchedModel::getNumMicroOps(MachineInstr *MI) const {
+unsigned TargetSchedModel::getNumMicroOps(const MachineInstr *MI,
+                                          const MCSchedClassDesc *SC) const {
   if (hasInstrItineraries()) {
     int UOps = InstrItins.getNumMicroOps(MI->getDesc().getSchedClass());
     return (UOps >= 0) ? UOps : TII->getNumMicroOps(&InstrItins, MI);
   }
   if (hasInstrSchedModel()) {
-    const MCSchedClassDesc *SCDesc = resolveSchedClass(MI);
-    if (SCDesc->isValid())
-      return SCDesc->NumMicroOps;
+    if (!SC)
+      SC = resolveSchedClass(MI);
+    if (SC->isValid())
+      return SC->NumMicroOps;
   }
   return MI->isTransient() ? 0 : 1;
+}
+
+// The machine model may explicitly specify an invalid latency, which
+// effectively means infinite latency. Since users of the TargetSchedule API
+// don't know how to handle this, we convert it to a very large latency that is
+// easy to distinguish when debugging the DAG but won't induce overflow.
+static unsigned convertLatency(int Cycles) {
+  return Cycles >= 0 ? Cycles : 1000;
 }
 
 /// If we can determine the operand latency from the def only, without machine
@@ -89,6 +128,8 @@ resolveSchedClass(const MachineInstr *MI) const {
   // Get the definition's scheduling class descriptor from this machine model.
   unsigned SchedClass = MI->getDesc().getSchedClass();
   const MCSchedClassDesc *SCDesc = SchedModel.getSchedClassDesc(SchedClass);
+  if (!SCDesc->isValid())
+    return SCDesc;
 
 #ifndef NDEBUG
   unsigned NIter = 0;
@@ -178,7 +219,7 @@ unsigned TargetSchedModel::computeOperandLatency(
     const MCWriteLatencyEntry *WLEntry =
       STI->getWriteLatencyEntry(SCDesc, DefIdx);
     unsigned WriteID = WLEntry->WriteResourceID;
-    unsigned Latency = WLEntry->Cycles;
+    unsigned Latency = convertLatency(WLEntry->Cycles);
     if (!UseMI)
       return Latency;
 
@@ -201,7 +242,10 @@ unsigned TargetSchedModel::computeOperandLatency(
     report_fatal_error(ss.str());
   }
 #endif
-  return DefMI->isTransient() ? 0 : 1;
+  // FIXME: Automatically giving all implicit defs defaultDefLatency is
+  // undesirable. We should only do it for defs that are known to the MC
+  // desc like flags. Truly implicit defs should get 1 cycle latency.
+  return DefMI->isTransient() ? 0 : TII->defaultDefLatency(&SchedModel, DefMI);
 }
 
 unsigned TargetSchedModel::computeInstrLatency(const MachineInstr *MI) const {
@@ -219,7 +263,7 @@ unsigned TargetSchedModel::computeInstrLatency(const MachineInstr *MI) const {
         // Lookup the definition's write latency in SubtargetInfo.
         const MCWriteLatencyEntry *WLEntry =
           STI->getWriteLatencyEntry(SCDesc, DefIdx);
-        Latency = std::max(Latency, WLEntry->Cycles);
+        Latency = std::max(Latency, convertLatency(WLEntry->Cycles));
       }
       return Latency;
     }

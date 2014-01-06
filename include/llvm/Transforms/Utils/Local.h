@@ -15,10 +15,10 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOCAL_H
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
-#include "llvm/IRBuilder.h"
-#include "llvm/Operator.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Operator.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
-#include "llvm/Target/TargetData.h"
 
 namespace llvm {
 
@@ -35,8 +35,9 @@ class Pass;
 class PHINode;
 class AllocaInst;
 class ConstantExpr;
-class TargetData;
+class DataLayout;
 class TargetLibraryInfo;
+class TargetTransformInfo;
 class DIBuilder;
 
 template<typename T> class SmallVectorImpl;
@@ -84,7 +85,7 @@ bool RecursivelyDeleteDeadPHINode(PHINode *PN, const TargetLibraryInfo *TLI=0);
 ///
 /// This returns true if it changed the code, note that it can delete
 /// instructions in other blocks as well in this block.
-bool SimplifyInstructionsInBlock(BasicBlock *BB, const TargetData *TD = 0,
+bool SimplifyInstructionsInBlock(BasicBlock *BB, const DataLayout *TD = 0,
                                  const TargetLibraryInfo *TLI = 0);
     
 //===----------------------------------------------------------------------===//
@@ -103,7 +104,7 @@ bool SimplifyInstructionsInBlock(BasicBlock *BB, const TargetData *TD = 0,
 /// .. and delete the predecessor corresponding to the '1', this will attempt to
 /// recursively fold the 'and' to 0.
 void RemovePredecessorAndSimplify(BasicBlock *BB, BasicBlock *Pred,
-                                  TargetData *TD = 0);
+                                  DataLayout *TD = 0);
     
   
 /// MergeBasicBlockIntoOnlyPred - BB is a block with one predecessor and its
@@ -134,7 +135,8 @@ bool EliminateDuplicatePHINodes(BasicBlock *BB);
 /// of the CFG.  It returns true if a modification was made, possibly deleting
 /// the basic block that was pointed to.
 ///
-bool SimplifyCFG(BasicBlock *BB, const TargetData *TD = 0);
+bool SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
+                 const DataLayout *TD = 0);
 
 /// FoldBranchToCommonDest - If this basic block is ONLY a setcc and a branch,
 /// and if a predecessor branches to us and one of our successors, fold the
@@ -162,10 +164,10 @@ AllocaInst *DemotePHIToStack(PHINode *P, Instruction *AllocaPoint = 0);
 /// and it is more than the alignment of the ultimate object, see if we can
 /// increase the alignment of the ultimate object, making this check succeed.
 unsigned getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
-                                    const TargetData *TD = 0);
+                                    const DataLayout *TD = 0);
 
 /// getKnownAlignment - Try to infer an alignment for the specified pointer.
-static inline unsigned getKnownAlignment(Value *V, const TargetData *TD = 0) {
+static inline unsigned getKnownAlignment(Value *V, const DataLayout *TD = 0) {
   return getOrEnforceKnownAlignment(V, 0, TD);
 }
 
@@ -175,7 +177,7 @@ static inline unsigned getKnownAlignment(Value *V, const TargetData *TD = 0) {
 /// When NoAssumptions is true, no assumptions about index computation not
 /// overflowing is made.
 template<typename IRBuilderTy>
-Value *EmitGEPOffset(IRBuilderTy *Builder, const TargetData &TD, User *GEP,
+Value *EmitGEPOffset(IRBuilderTy *Builder, const DataLayout &TD, User *GEP,
                      bool NoAssumptions = false) {
   gep_type_iterator GTI = gep_type_begin(GEP);
   Type *IntPtrTy = TD.getIntPtrType(GEP->getContext());
@@ -232,12 +234,12 @@ Value *EmitGEPOffset(IRBuilderTy *Builder, const TargetData &TD, User *GEP,
 ///  Dbg Intrinsic utilities
 ///
 
-/// Inserts a llvm.dbg.value instrinsic before the stores to an alloca'd value
+/// Inserts a llvm.dbg.value intrinsic before a store to an alloca'd value
 /// that has an associated llvm.dbg.decl intrinsic.
 bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
                                      StoreInst *SI, DIBuilder &Builder);
 
-/// Inserts a llvm.dbg.value instrinsic before the stores to an alloca'd value
+/// Inserts a llvm.dbg.value intrinsic before a load of an alloca'd value
 /// that has an associated llvm.dbg.decl intrinsic.
 bool ConvertDebugDeclareToDebugValue(DbgDeclareInst *DDI,
                                      LoadInst *LI, DIBuilder &Builder);
@@ -249,6 +251,16 @@ bool LowerDbgDeclare(Function &F);
 /// FindAllocaDbgDeclare - Finds the llvm.dbg.declare intrinsic corresponding to
 /// an alloca, if any.
 DbgDeclareInst *FindAllocaDbgDeclare(Value *V);
+
+/// replaceDbgDeclareForAlloca - Replaces llvm.dbg.declare instruction when
+/// alloca is replaced with a new value.
+bool replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
+                                DIBuilder &Builder);
+
+/// \brief Remove all blocks that can not be reached from the function's entry.
+///
+/// Returns true if any basic block was removed.
+bool removeUnreachableBlocks(Function &F);
 
 } // End llvm namespace
 

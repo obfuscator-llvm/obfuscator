@@ -13,16 +13,20 @@ set(ADTSources
   FoldingSet.cpp
   HashingTest.cpp
   ilistTest.cpp
+  ImmutableMapTest.cpp
   ImmutableSetTest.cpp
   IntEqClassesTest.cpp
   IntervalMapTest.cpp
   IntrusiveRefCntPtrTest.cpp
+  MapVectorTest.cpp
+  OptionalTest.cpp
   PackedVectorTest.cpp
   SCCIteratorTest.cpp
   SmallPtrSetTest.cpp
   SmallStringTest.cpp
   SmallVectorTest.cpp
   SparseBitVectorTest.cpp
+  SparseMultiSetTest.cpp
   SparseSetTest.cpp
   StringMapTest.cpp
   StringRefTest.cpp

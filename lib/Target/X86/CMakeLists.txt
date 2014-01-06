@@ -10,14 +10,12 @@ tablegen(LLVM X86GenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM X86GenFastISel.inc -gen-fast-isel)
 tablegen(LLVM X86GenCallingConv.inc -gen-callingconv)
 tablegen(LLVM X86GenSubtargetInfo.inc -gen-subtarget)
-tablegen(LLVM X86GenEDInfo.inc -gen-enhanced-disassembly-info)
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
   X86AsmPrinter.cpp
   X86COFFMachineModuleInfo.cpp
   X86CodeEmitter.cpp
-  X86ELFWriterInfo.cpp
   X86FastISel.cpp
   X86FloatingPoint.cpp
   X86FrameLowering.cpp
@@ -27,12 +25,15 @@ set(sources
   X86JITInfo.cpp
   X86MCInstLower.cpp
   X86MachineFunctionInfo.cpp
+  X86PadShortFunction.cpp
   X86RegisterInfo.cpp
   X86SelectionDAGInfo.cpp
   X86Subtarget.cpp
   X86TargetMachine.cpp
   X86TargetObjectFile.cpp
+  X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
+  X86FixupLEAs.cpp
   )
 
 if( CMAKE_CL_64 )

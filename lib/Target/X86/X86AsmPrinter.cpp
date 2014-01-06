@@ -13,34 +13,33 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86AsmPrinter.h"
-#include "X86MCInstLower.h"
+#include "InstPrinter/X86ATTInstPrinter.h"
 #include "X86.h"
 #include "X86COFFMachineModuleInfo.h"
 #include "X86MachineFunctionInfo.h"
 #include "X86TargetMachine.h"
-#include "InstPrinter/X86ATTInstPrinter.h"
-#include "llvm/CallingConv.h"
-#include "llvm/DebugInfo.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Module.h"
-#include "llvm/Type.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Assembly/Writer.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
+#include "llvm/CodeGen/MachineModuleInfoImpls.h"
+#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+#include "llvm/DebugInfo.h"
+#include "llvm/IR/CallingConv.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/CodeGen/MachineModuleInfoImpls.h"
-#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/Target/Mangler.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
-#include "llvm/ADT/SmallString.h"
+#include "llvm/Target/Mangler.h"
+#include "llvm/Target/TargetOptions.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -202,7 +201,7 @@ void X86AsmPrinter::printSymbolOperand(const MachineOperand &MO,
   case X86II::MO_TLVP_PIC_BASE:
     O << "@TLVP" << '-' << *MF->getPICBaseSymbol();
     break;
-  case X86II::MO_SECREL:      O << "@SECREL";      break;
+  case X86II::MO_SECREL:    O << "@SECREL32";  break;
   }
 }
 
@@ -253,57 +252,18 @@ void X86AsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
   }
 
   case MachineOperand::MO_Immediate:
-    O << '$' << MO.getImm();
+    if (AsmVariant == 0) O << '$';
+    O << MO.getImm();
     return;
 
   case MachineOperand::MO_JumpTableIndex:
   case MachineOperand::MO_ConstantPoolIndex:
   case MachineOperand::MO_GlobalAddress:
   case MachineOperand::MO_ExternalSymbol: {
-    O << '$';
+    if (AsmVariant == 0) O << '$';
     printSymbolOperand(MO, O);
     break;
   }
-  }
-}
-
-void X86AsmPrinter::printSSECC(const MachineInstr *MI, unsigned Op,
-                               raw_ostream &O) {
-  unsigned char value = MI->getOperand(Op).getImm();
-  switch (value) {
-  default: llvm_unreachable("Invalid ssecc argument!");
-  case    0: O << "eq"; break;
-  case    1: O << "lt"; break;
-  case    2: O << "le"; break;
-  case    3: O << "unord"; break;
-  case    4: O << "neq"; break;
-  case    5: O << "nlt"; break;
-  case    6: O << "nle"; break;
-  case    7: O << "ord"; break;
-  case    8: O << "eq_uq"; break;
-  case    9: O << "nge"; break;
-  case  0xa: O << "ngt"; break;
-  case  0xb: O << "false"; break;
-  case  0xc: O << "neq_oq"; break;
-  case  0xd: O << "ge"; break;
-  case  0xe: O << "gt"; break;
-  case  0xf: O << "true"; break;
-  case 0x10: O << "eq_os"; break;
-  case 0x11: O << "lt_oq"; break;
-  case 0x12: O << "le_oq"; break;
-  case 0x13: O << "unord_s"; break;
-  case 0x14: O << "neq_us"; break;
-  case 0x15: O << "nlt_uq"; break;
-  case 0x16: O << "nle_uq"; break;
-  case 0x17: O << "ord_s"; break;
-  case 0x18: O << "eq_us"; break;
-  case 0x19: O << "nge_uq"; break;
-  case 0x1a: O << "ngt_uq"; break;
-  case 0x1b: O << "false_os"; break;
-  case 0x1c: O << "neq_os"; break;
-  case 0x1d: O << "ge_oq"; break;
-  case 0x1e: O << "gt_oq"; break;
-  case 0x1f: O << "true_us"; break;
   }
 }
 
@@ -396,26 +356,24 @@ void X86AsmPrinter::printIntelMemReference(const MachineInstr *MI, unsigned Op,
     NeedPlus = true;
   }
 
-  assert (DispSpec.isImm() && "Displacement is not an immediate!");
-  int64_t DispVal = DispSpec.getImm();
-  if (DispVal || (!IndexReg.getReg() && !BaseReg.getReg())) {
-    if (NeedPlus) {
-      if (DispVal > 0)
-        O << " + ";
-      else {
-        O << " - ";
-        DispVal = -DispVal;
+  if (!DispSpec.isImm()) {
+    if (NeedPlus) O << " + ";
+    printOperand(MI, Op+3, O, Modifier, AsmVariant);
+  } else {
+    int64_t DispVal = DispSpec.getImm();
+    if (DispVal || (!IndexReg.getReg() && !BaseReg.getReg())) {
+      if (NeedPlus) {
+        if (DispVal > 0)
+          O << " + ";
+        else {
+          O << " - ";
+          DispVal = -DispVal;
+        }
       }
+      O << DispVal;
     }
-    O << DispVal;
-  }  
+  }
   O << ']';
-}
-
-void X86AsmPrinter::printPICLabel(const MachineInstr *MI, unsigned Op,
-                                  raw_ostream &O) {
-  O << *MF->getPICBaseSymbol() << '\n';
-  O << *MF->getPICBaseSymbol() << ':';
 }
 
 bool X86AsmPrinter::printAsmMRegister(const MachineOperand &MO, char Mode,
@@ -590,7 +548,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
                                         MCSA_IndirectSymbol);
         // hlt; hlt; hlt; hlt; hlt     hlt = 0xf4.
         const char HltInsts[] = "\xf4\xf4\xf4\xf4\xf4";
-        OutStreamer.EmitBytes(StringRef(HltInsts, 5), 0/*addrspace*/);
+        OutStreamer.EmitBytes(StringRef(HltInsts, 5));
       }
 
       Stubs.clear();
@@ -616,7 +574,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
         // .long 0
         if (MCSym.getInt())
           // External to current translation unit.
-          OutStreamer.EmitIntValue(0, 4/*size*/, 0/*addrspace*/);
+          OutStreamer.EmitIntValue(0, 4/*size*/);
         else
           // Internal to current translation unit.
           //
@@ -625,8 +583,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
           // using NLPs.  However, sometimes the types are local to the file. So
           // we need to fill in the value for the NLP in those cases.
           OutStreamer.EmitValue(MCSymbolRefExpr::Create(MCSym.getPointer(),
-                                                        OutContext),
-                                4/*size*/, 0/*addrspace*/);
+                                                        OutContext), 4/*size*/);
       }
       Stubs.clear();
       OutStreamer.AddBlankLine();
@@ -643,8 +600,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
         // .long _foo
         OutStreamer.EmitValue(MCSymbolRefExpr::
                               Create(Stubs[i].second.getPointer(),
-                                     OutContext),
-                              4/*size*/, 0/*addrspace*/);
+                                     OutContext), 4/*size*/);
       }
       Stubs.clear();
       OutStreamer.AddBlankLine();
@@ -710,7 +666,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
           name += ",DATA";
         else
         name += ",data";
-        OutStreamer.EmitBytes(name, 0);
+        OutStreamer.EmitBytes(name);
       }
 
       for (unsigned i = 0, e = DLLExportedFns.size(); i != e; ++i) {
@@ -719,7 +675,7 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
         else
           name = " -export:";
         name += DLLExportedFns[i]->getName();
-        OutStreamer.EmitBytes(name, 0);
+        OutStreamer.EmitBytes(name);
       }
     }
   }
@@ -734,12 +690,12 @@ void X86AsmPrinter::EmitEndOfAsmFile(Module &M) {
     MachineModuleInfoELF::SymbolListTy Stubs = MMIELF.GetGVStubList();
     if (!Stubs.empty()) {
       OutStreamer.SwitchSection(TLOFELF.getDataRelSection());
-      const TargetData *TD = TM.getTargetData();
+      const DataLayout *TD = TM.getDataLayout();
 
       for (unsigned i = 0, e = Stubs.size(); i != e; ++i) {
         OutStreamer.EmitLabel(Stubs[i].first);
         OutStreamer.EmitSymbolValue(Stubs[i].second.getPointer(),
-                                    TD->getPointerSize(), 0);
+                                    TD->getPointerSize());
       }
       Stubs.clear();
     }

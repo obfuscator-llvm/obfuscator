@@ -1,14 +1,17 @@
 set(LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
-  ipo scalaropts linker bitreader bitwriter mcdisassembler obfuscation vectorize)
+  ipo scalaropts linker bitreader bitwriter mcdisassembler vectorize obfuscation)
 
 add_definitions( -DLLVM_VERSION_INFO=\"${PACKAGE_VERSION}\" )
 
 set(SOURCES
   LTOCodeGenerator.cpp
+  LTODisassembler.cpp
   lto.cpp
   LTOModule.cpp
   )
+
+set(LLVM_COMMON_DEPENDS intrinsics_gen)
 
 if( NOT WIN32 AND LLVM_ENABLE_PIC )
   set(bsl ${BUILD_SHARED_LIBS})

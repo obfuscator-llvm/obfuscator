@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <sstream>
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/CompilationDatabasePluginRegistry.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/system_error.h"
+#include <sstream>
 
 namespace clang {
 namespace tooling {
@@ -49,14 +49,19 @@ static CompilationDatabase *
 findCompilationDatabaseFromDirectory(StringRef Directory,
                                      std::string &ErrorMessage) {
   std::stringstream ErrorStream;
+  bool HasErrorMessage = false;
   while (!Directory.empty()) {
     std::string LoadErrorMessage;
 
     if (CompilationDatabase *DB =
            CompilationDatabase::loadFromDirectory(Directory, LoadErrorMessage))
       return DB;
-    ErrorStream << "No compilation database found in " << Directory.str()
-                << "\n" << LoadErrorMessage;
+
+    if (!HasErrorMessage) {
+      ErrorStream << "No compilation database found in " << Directory.str()
+                  << " or any parent directory\n" << LoadErrorMessage;
+      HasErrorMessage = true;
+    }
 
     Directory = llvm::sys::path::parent_path(Directory);
   }
@@ -67,7 +72,7 @@ findCompilationDatabaseFromDirectory(StringRef Directory,
 CompilationDatabase *
 CompilationDatabase::autoDetectFromSource(StringRef SourceFile,
                                           std::string &ErrorMessage) {
-  llvm::SmallString<1024> AbsolutePath(getAbsolutePath(SourceFile));
+  SmallString<1024> AbsolutePath(getAbsolutePath(SourceFile));
   StringRef Directory = llvm::sys::path::parent_path(AbsolutePath);
 
   CompilationDatabase *DB = findCompilationDatabaseFromDirectory(Directory,
@@ -82,7 +87,7 @@ CompilationDatabase::autoDetectFromSource(StringRef SourceFile,
 CompilationDatabase *
 CompilationDatabase::autoDetectFromDirectory(StringRef SourceDir,
                                              std::string &ErrorMessage) {
-  llvm::SmallString<1024> AbsolutePath(getAbsolutePath(SourceDir));
+  SmallString<1024> AbsolutePath(getAbsolutePath(SourceDir));
 
   CompilationDatabase *DB = findCompilationDatabaseFromDirectory(AbsolutePath,
                                                                  ErrorMessage);
@@ -125,6 +130,11 @@ FixedCompilationDatabase::getCompileCommands(StringRef FilePath) const {
 std::vector<std::string>
 FixedCompilationDatabase::getAllFiles() const {
   return std::vector<std::string>();
+}
+
+std::vector<CompileCommand>
+FixedCompilationDatabase::getAllCompileCommands() const {
+  return std::vector<CompileCommand>();
 }
 
 // This anchor is used to force the linker to link in the generated object file

@@ -13,22 +13,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Lex/LiteralSupport.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/LexDiagnostic.h"
+#include "clang/Basic/CharInfo.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/ConvertUTF.h"
+#include "clang/Lex/LexDiagnostic.h"
+#include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/ErrorHandling.h"
-using namespace clang;
 
-/// HexDigitValue - Return the value of the specified hex digit, or -1 if it's
-/// not valid.
-static int HexDigitValue(char C) {
-  if (C >= '0' && C <= '9') return C-'0';
-  if (C >= 'a' && C <= 'f') return C-'a'+10;
-  if (C >= 'A' && C <= 'F') return C-'A'+10;
-  return -1;
-}
+using namespace clang;
 
 static unsigned getCharWidth(tok::TokenKind kind, const TargetInfo &Target) {
   switch (kind) {
@@ -49,6 +42,20 @@ static unsigned getCharWidth(tok::TokenKind kind, const TargetInfo &Target) {
   }
 }
 
+static CharSourceRange MakeCharSourceRange(const LangOptions &Features,
+                                           FullSourceLoc TokLoc,
+                                           const char *TokBegin,
+                                           const char *TokRangeBegin,
+                                           const char *TokRangeEnd) {
+  SourceLocation Begin =
+    Lexer::AdvanceToTokenCharacter(TokLoc, TokRangeBegin - TokBegin,
+                                   TokLoc.getManager(), Features);
+  SourceLocation End =
+    Lexer::AdvanceToTokenCharacter(Begin, TokRangeEnd - TokRangeBegin,
+                                   TokLoc.getManager(), Features);
+  return CharSourceRange::getCharRange(Begin, End);
+}
+
 /// \brief Produce a diagnostic highlighting some portion of a literal.
 ///
 /// Emits the diagnostic \p DiagID, highlighting the range of characters from
@@ -61,11 +68,8 @@ static DiagnosticBuilder Diag(DiagnosticsEngine *Diags,
   SourceLocation Begin =
     Lexer::AdvanceToTokenCharacter(TokLoc, TokRangeBegin - TokBegin,
                                    TokLoc.getManager(), Features);
-  SourceLocation End =
-    Lexer::AdvanceToTokenCharacter(Begin, TokRangeEnd - TokRangeBegin,
-                                   TokLoc.getManager(), Features);
-  return Diags->Report(Begin, DiagID)
-      << CharSourceRange::getCharRange(Begin, End);
+  return Diags->Report(Begin, DiagID) <<
+    MakeCharSourceRange(Features, TokLoc, TokBegin, TokRangeBegin, TokRangeEnd);
 }
 
 /// ProcessCharEscape - Parse a standard C escape sequence, which can occur in
@@ -125,10 +129,10 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     break;
   case 'x': { // Hex escape.
     ResultChar = 0;
-    if (ThisTokBuf == ThisTokEnd || !isxdigit(*ThisTokBuf)) {
+    if (ThisTokBuf == ThisTokEnd || !isHexDigit(*ThisTokBuf)) {
       if (Diags)
         Diag(Diags, Features, Loc, ThisTokBegin, EscapeBegin, ThisTokBuf,
-             diag::err_hex_escape_no_digits);
+             diag::err_hex_escape_no_digits) << "x";
       HadError = 1;
       break;
     }
@@ -136,7 +140,7 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     // Hex escapes are a maximal series of hex digits.
     bool Overflow = false;
     for (; ThisTokBuf != ThisTokEnd; ++ThisTokBuf) {
-      int CharVal = HexDigitValue(ThisTokBuf[0]);
+      int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
       if (CharVal == -1) break;
       // About to shift out a digit?
       Overflow |= (ResultChar & 0xF0000000) ? true : false;
@@ -194,7 +198,7 @@ static unsigned ProcessCharEscape(const char *ThisTokBegin,
     if (Diags == 0)
       break;
 
-    if (isgraph(ResultChar))
+    if (isPrintable(ResultChar))
       Diag(Diags, Features, Loc, ThisTokBegin, EscapeBegin, ThisTokBuf,
            diag::ext_unknown_escape)
         << std::string(1, ResultChar);
@@ -221,16 +225,16 @@ static bool ProcessUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   // Skip the '\u' char's.
   ThisTokBuf += 2;
 
-  if (ThisTokBuf == ThisTokEnd || !isxdigit(*ThisTokBuf)) {
+  if (ThisTokBuf == ThisTokEnd || !isHexDigit(*ThisTokBuf)) {
     if (Diags)
       Diag(Diags, Features, Loc, ThisTokBegin, UcnBegin, ThisTokBuf,
-           diag::err_ucn_escape_no_digits);
+           diag::err_hex_escape_no_digits) << StringRef(&ThisTokBuf[-1], 1);
     return false;
   }
   UcnLen = (ThisTokBuf[-1] == 'u' ? 4 : 8);
   unsigned short UcnLenSave = UcnLen;
   for (; ThisTokBuf != ThisTokEnd && UcnLenSave; ++ThisTokBuf, UcnLenSave--) {
-    int CharVal = HexDigitValue(ThisTokBuf[0]);
+    int CharVal = llvm::hexDigitValue(ThisTokBuf[0]);
     if (CharVal == -1) break;
     UcnVal <<= 4;
     UcnVal |= CharVal;
@@ -256,7 +260,7 @@ static bool ProcessUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   // characters inside character and string literals
   if (UcnVal < 0xa0 &&
       (UcnVal != 0x24 && UcnVal != 0x40 && UcnVal != 0x60)) {  // $, @, `
-    bool IsError = (!Features.CPlusPlus0x || !in_char_string_literal);
+    bool IsError = (!Features.CPlusPlus11 || !in_char_string_literal);
     if (Diags) {
       char BasicSCSChar = UcnVal;
       if (UcnVal >= 0x20 && UcnVal < 0x7f)
@@ -275,7 +279,7 @@ static bool ProcessUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
 
   if (!Features.CPlusPlus && !Features.C99 && Diags)
     Diag(Diags, Features, Loc, ThisTokBegin, UcnBegin, ThisTokBuf,
-         diag::warn_ucn_not_valid_in_c89);
+         diag::warn_ucn_not_valid_in_c89_literal);
 
   return true;
 }
@@ -395,10 +399,10 @@ static void EncodeUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
   // Finally, we write the bytes into ResultBuf.
   ResultBuf += bytesToWrite;
   switch (bytesToWrite) { // note: everything falls through.
-    case 4: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    case 3: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    case 2: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
-    case 1: *--ResultBuf = (UTF8) (UcnVal | firstByteMark[bytesToWrite]);
+  case 4: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+  case 3: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+  case 2: *--ResultBuf = (UTF8)((UcnVal | byteMark) & byteMask); UcnVal >>= 6;
+  case 1: *--ResultBuf = (UTF8) (UcnVal | firstByteMark[bytesToWrite]);
   }
   // Update the buffer.
   ResultBuf += bytesToWrite;
@@ -456,8 +460,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   // and FP constants (specifically, the 'pp-number' regex), and assumes that
   // the byte at "*end" is both valid and not part of the regex.  Because of
   // this, it doesn't have to check for 'overscan' in various places.
-  assert(!isalnum(*ThisTokEnd) && *ThisTokEnd != '.' && *ThisTokEnd != '_' &&
-         "Lexer didn't maximally munch?");
+  assert(!isPreprocessingNumberBody(*ThisTokEnd) && "didn't maximally munch?");
 
   s = DigitsBegin = ThisTokBegin;
   saw_exponent = false;
@@ -480,7 +483,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     s = SkipDigits(s);
     if (s == ThisTokEnd) {
       // Done.
-    } else if (isxdigit(*s) && !(*s == 'e' || *s == 'E')) {
+    } else if (isHexDigit(*s) && !(*s == 'e' || *s == 'E')) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s - ThisTokBegin),
               diag::err_invalid_decimal_digit) << StringRef(s, 1);
       hadError = true;
@@ -605,7 +608,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   }
 
   if (s != ThisTokEnd) {
-    if (PP.getLangOpts().CPlusPlus0x && s == SuffixBegin && *s == '_') {
+    if (PP.getLangOpts().CPlusPlus11 && s == SuffixBegin && *s == '_') {
       // We have a ud-suffix! By C++11 [lex.ext]p10, ud-suffixes not starting
       // with an '_' are ill-formed.
       saw_ud_suffix = true;
@@ -632,7 +635,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
   s++;
 
   // Handle a hex number like 0x1234.
-  if ((*s == 'x' || *s == 'X') && (isxdigit(s[1]) || s[1] == '.')) {
+  if ((*s == 'x' || *s == 'X') && (isHexDigit(s[1]) || s[1] == '.')) {
     s++;
     radix = 16;
     DigitsBegin = s;
@@ -683,15 +686,20 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
 
   // Handle simple binary numbers 0b01010
   if (*s == 'b' || *s == 'B') {
-    // 0b101010 is a GCC extension.
-    PP.Diag(TokLoc, diag::ext_binary_literal);
+    // 0b101010 is a C++1y / GCC extension.
+    PP.Diag(TokLoc,
+            PP.getLangOpts().CPlusPlus1y
+              ? diag::warn_cxx11_compat_binary_literal
+              : PP.getLangOpts().CPlusPlus
+                ? diag::ext_binary_literal_cxx1y
+                : diag::ext_binary_literal);
     ++s;
     radix = 2;
     DigitsBegin = s;
     s = SkipBinaryDigits(s);
     if (s == ThisTokEnd) {
       // Done.
-    } else if (isxdigit(*s)) {
+    } else if (isHexDigit(*s)) {
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s-ThisTokBegin),
               diag::err_invalid_binary_digit) << StringRef(s, 1);
       hadError = true;
@@ -711,7 +719,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
 
   // If we have some other non-octal digit that *is* a decimal digit, see if
   // this is part of a floating point number like 094.123 or 09e1.
-  if (isdigit(*s)) {
+  if (isDigit(*s)) {
     const char *EndDecimal = SkipDigits(s);
     if (EndDecimal[0] == '.' || EndDecimal[0] == 'e' || EndDecimal[0] == 'E') {
       s = EndDecimal;
@@ -721,7 +729,7 @@ void NumericLiteralParser::ParseNumberStartingWithZero(SourceLocation TokLoc) {
 
   // If we have a hex digit other than 'e' (which denotes a FP exponent) then
   // the code is using an incorrect base.
-  if (isxdigit(*s) && *s != 'e' && *s != 'E') {
+  if (isHexDigit(*s) && *s != 'e' && *s != 'E') {
     PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, s-ThisTokBegin),
             diag::err_invalid_octal_digit) << StringRef(s, 1);
     hadError = true;
@@ -781,7 +789,7 @@ bool NumericLiteralParser::GetIntegerValue(llvm::APInt &Val) {
   if (alwaysFitsInto64Bits(radix, NumDigits)) {
     uint64_t N = 0;
     for (const char *Ptr = DigitsBegin; Ptr != SuffixBegin; ++Ptr)
-      N = N * radix + HexDigitValue(*Ptr);
+      N = N * radix + llvm::hexDigitValue(*Ptr);
 
     // This will truncate the value to Val's input width. Simply check
     // for overflow by comparing.
@@ -798,7 +806,7 @@ bool NumericLiteralParser::GetIntegerValue(llvm::APInt &Val) {
 
   bool OverflowOccurred = false;
   while (Ptr < SuffixBegin) {
-    unsigned C = HexDigitValue(*Ptr++);
+    unsigned C = llvm::hexDigitValue(*Ptr++);
 
     // If this letter is out of bound for this radix, reject it.
     assert(C < radix && "NumericLiteralParser ctor should have rejected this");
@@ -1361,7 +1369,7 @@ void StringLiteralParser::init(const Token *StringToks, unsigned NumStringToks){
   } else if (Diags) {
     // Complain if this string literal has too many characters.
     unsigned MaxChars = Features.CPlusPlus? 65536 : Features.C99 ? 4095 : 509;
-    
+
     if (GetNumStringChars() > MaxChars)
       Diags->Report(StringToks[0].getLocation(),
                     diag::ext_string_too_long)
@@ -1370,6 +1378,15 @@ void StringLiteralParser::init(const Token *StringToks, unsigned NumStringToks){
         << SourceRange(StringToks[0].getLocation(),
                        StringToks[NumStringToks-1].getLocation());
   }
+}
+
+static const char *resyncUTF8(const char *Err, const char *End) {
+  if (Err == End)
+    return End;
+  End = Err + std::min<unsigned>(getNumBytesForUTF8(*Err), End-Err);
+  while (++Err != End && (*Err & 0xC0) == 0x80)
+    ;
+  return Err;
 }
 
 /// \brief This function copies from Fragment, which is a sequence of bytes
@@ -1381,7 +1398,6 @@ bool StringLiteralParser::CopyStringFragment(const Token &Tok,
   const UTF8 *ErrorPtrTmp;
   if (ConvertUTF8toWide(CharByteWidth, Fragment, ResultPtr, ErrorPtrTmp))
     return false;
-  const char *ErrorPtr = reinterpret_cast<const char *>(ErrorPtrTmp);
 
   // If we see bad encoding for unprefixed string literals, warn and
   // simply copy the byte values, for compatibility with gcc and older
@@ -1391,12 +1407,33 @@ bool StringLiteralParser::CopyStringFragment(const Token &Tok,
     memcpy(ResultPtr, Fragment.data(), Fragment.size());
     ResultPtr += Fragment.size();
   }
+
   if (Diags) {
-    Diag(Diags, Features, FullSourceLoc(Tok.getLocation(), SM), TokBegin,
-         ErrorPtr, ErrorPtr + std::min<unsigned>(getNumBytesForUTF8(*ErrorPtr),
-                                                 Fragment.end() - ErrorPtr),
-         NoErrorOnBadEncoding ? diag::warn_bad_string_encoding
-                              : diag::err_bad_string_encoding);
+    const char *ErrorPtr = reinterpret_cast<const char *>(ErrorPtrTmp);
+
+    FullSourceLoc SourceLoc(Tok.getLocation(), SM);
+    const DiagnosticBuilder &Builder =
+      Diag(Diags, Features, SourceLoc, TokBegin,
+           ErrorPtr, resyncUTF8(ErrorPtr, Fragment.end()),
+           NoErrorOnBadEncoding ? diag::warn_bad_string_encoding
+                                : diag::err_bad_string_encoding);
+
+    const char *NextStart = resyncUTF8(ErrorPtr, Fragment.end());
+    StringRef NextFragment(NextStart, Fragment.end()-NextStart);
+
+    // Decode into a dummy buffer.
+    SmallString<512> Dummy;
+    Dummy.reserve(Fragment.size() * CharByteWidth);
+    char *Ptr = Dummy.data();
+
+    while (!Builder.hasMaxRanges() &&
+           !ConvertUTF8toWide(CharByteWidth, NextFragment, Ptr, ErrorPtrTmp)) {
+      const char *ErrorPtr = reinterpret_cast<const char *>(ErrorPtrTmp);
+      NextStart = resyncUTF8(ErrorPtr, Fragment.end());
+      Builder << MakeCharSourceRange(Features, SourceLoc, TokBegin,
+                                     ErrorPtr, NextStart);
+      NextFragment = StringRef(NextStart, Fragment.end()-NextStart);
+    }
   }
   return !NoErrorOnBadEncoding;
 }

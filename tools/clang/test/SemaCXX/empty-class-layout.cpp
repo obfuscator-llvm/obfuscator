@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown %s -fsyntax-only -verify 
+// expected-no-diagnostics
 
 #define SA(n, p) int a##n[(p) ? 1 : -1]
 
@@ -154,4 +155,19 @@ namespace Test7 {
     char c;
   };
   SA(0, sizeof(Test) == 2);
+}
+
+namespace Test8 {
+  // Test that type sugar doesn't make us incorrectly determine the size of an
+  // array of empty classes.
+  struct Empty1 {};
+  struct Empty2 {};
+  struct Empties : Empty1, Empty2 {};
+  typedef Empty1 Sugar[4];
+  struct A : Empty2, Empties {
+    // This must go at offset 2, because if it were at offset 0,
+    // V[0][1] would overlap Empties::Empty1.
+    Sugar V[1];
+  };
+  SA(0, sizeof(A) == 6);
 }

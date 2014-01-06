@@ -15,9 +15,9 @@
 #ifndef LLVM_CLANG_SERIALIZATION_MODULE_H
 #define LLVM_CLANG_SERIALIZATION_MODULE_H
 
+#include "clang/Basic/SourceLocation.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ContinuousRangeMap.h"
-#include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Bitcode/BitstreamReader.h"
@@ -55,6 +55,35 @@ struct DeclContextInfo {
   unsigned NumLexicalDecls;
 };
 
+/// \brief The input file that has been loaded from this AST file, along with
+/// bools indicating whether this was an overridden buffer or if it was
+/// out-of-date.
+class InputFile {
+  enum {
+    Overridden = 1,
+    OutOfDate = 2
+  };
+  llvm::PointerIntPair<const FileEntry *, 2, unsigned> Val;
+
+public:
+  InputFile() {}
+  InputFile(const FileEntry *File,
+            bool isOverridden = false, bool isOutOfDate = false) {
+    assert(!(isOverridden && isOutOfDate) &&
+           "an overridden cannot be out-of-date");
+    unsigned intVal = 0;
+    if (isOverridden)
+      intVal = Overridden;
+    else if (isOutOfDate)
+      intVal = OutOfDate;
+    Val.setPointerAndInt(File, intVal);
+  }
+
+  const FileEntry *getFile() const { return Val.getPointer(); }
+  bool isOverridden() const { return Val.getInt() == Overridden; }
+  bool isOutOfDate() const { return Val.getInt() == OutOfDate; }
+};
+
 /// \brief Information about a module that has been loaded by the ASTReader.
 ///
 /// Each instance of the Module class corresponds to a single AST file, which
@@ -69,11 +98,34 @@ public:
 
   // === General information ===
 
+  /// \brief The index of this module in the list of modules.
+  unsigned Index;
+
   /// \brief The type of this module.
   ModuleKind Kind;
 
   /// \brief The file name of the module file.
   std::string FileName;
+
+  /// \brief The original source file name that was used to build the
+  /// primary AST file, which may have been modified for
+  /// relocatable-pch support.
+  std::string OriginalSourceFileName;
+
+  /// \brief The actual original source file name that was used to
+  /// build this AST file.
+  std::string ActualOriginalSourceFileName;
+
+  /// \brief The file ID for the original source file that was used to
+  /// build this AST file.
+  FileID OriginalSourceFileID;
+
+  /// \brief The directory that the PCH was originally created in. Used to
+  /// allow resolving headers even after headers+PCH was moved to a new path.
+  std::string OriginalDir;
+
+  /// \brief Whether this precompiled header is a relocatable PCH file.
+  bool RelocatablePCH;
 
   /// \brief The file entry for the module file.
   const FileEntry *File;
@@ -101,12 +153,29 @@ public:
   /// \brief The main bitstream cursor for the main block.
   llvm::BitstreamCursor Stream;
 
+  /// \brief The source location where the module was explicitly or implicitly
+  /// imported in the local translation unit.
+  ///
+  /// If module A depends on and imports module B, both modules will have the
+  /// same DirectImportLoc, but different ImportLoc (B's ImportLoc will be a
+  /// source location inside module A).
+  SourceLocation DirectImportLoc;
+
   /// \brief The source location where this module was first imported.
-  /// FIXME: This is not properly initialized yet.
   SourceLocation ImportLoc;
 
   /// \brief The first source location in this module.
   SourceLocation FirstLoc;
+
+  // === Input Files ===
+  /// \brief The cursor to the start of the input-files block.
+  llvm::BitstreamCursor InputFilesCursor;
+
+  /// \brief Offsets for all of the input file entries in the AST file.
+  const uint32_t *InputFileOffsets;
+
+  /// \brief The input files that have been loaded from this AST file.
+  std::vector<InputFile> InputFilesLoaded;
 
   // === Source Locations ===
 
@@ -128,13 +197,6 @@ public:
 
   /// \brief SLocEntries that we're going to preload.
   SmallVector<uint64_t, 4> PreloadSLocEntries;
-
-  /// \brief The number of source location file entries in this AST file.
-  unsigned LocalNumSLocFileEntries;
-
-  /// \brief Offsets for all of the source location file entries in the
-  /// AST file.
-  const uint32_t *SLocFileOffsets;
 
   /// \brief Remapping table for source locations in this module.
   ContinuousRangeMap<uint32_t, int, 2> SLocRemap;
@@ -173,6 +235,22 @@ public:
   /// all of the macro definitions.
   llvm::BitstreamCursor MacroCursor;
 
+  /// \brief The number of macros in this AST file.
+  unsigned LocalNumMacros;
+
+  /// \brief Offsets of macros in the preprocessor block.
+  ///
+  /// This array is indexed by the macro ID (-1), and provides
+  /// the offset into the preprocessor block where macro definitions are
+  /// stored.
+  const uint32_t *MacroOffsets;
+
+  /// \brief Base macro ID for macros local to this module.
+  serialization::MacroID BaseMacroID;
+
+  /// \brief Remapping table for macro IDs in this module.
+  ContinuousRangeMap<uint32_t, int, 2> MacroRemap;
+
   /// \brief The offset of the start of the set of defined macros.
   uint64_t MacroStartOffset;
 
@@ -210,10 +288,6 @@ public:
   /// \brief The on-disk hash table that contains information about each of
   /// the header files.
   void *HeaderFileInfoTable;
-
-  /// \brief Actual data for the list of framework names used in the header
-  /// search information.
-  const char *HeaderFileFrameworkStrings;
 
   // === Submodule information ===  
   /// \brief The number of submodules in this module.
@@ -343,11 +417,6 @@ public:
 
   /// \brief Diagnostic IDs and their mappings that the user changed.
   SmallVector<uint64_t, 8> PragmaDiagMappings;
-
-  /// \brief The AST stat cache installed for this file, if any.
-  ///
-  /// The dynamic type of this stat cache is always ASTStatCache
-  void *StatCache;
 
   /// \brief List of modules which depend on this module
   llvm::SetVector<ModuleFile *> ImportedBy;

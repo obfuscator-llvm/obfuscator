@@ -1,5 +1,5 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128"
-; RUN: opt < %s -bb-vectorize -bb-vectorize-req-chain-depth=3 -instcombine -gvn -S | FileCheck %s
+; RUN: opt < %s -bb-vectorize -bb-vectorize-req-chain-depth=3 -bb-vectorize-ignore-target-info -instcombine -gvn -S | FileCheck %s
 
 ; This test checks the non-trivial pairing-induced cycle avoidance. Without this cycle avoidance, the algorithm would otherwise
 ; want to select the pairs:
@@ -107,6 +107,6 @@ done:
   ret void
 ; CHECK: @test1
 ; CHECK: go:
-; CHECK-NEXT: %conv.v.i0.1 = insertelement <2 x i32> undef, i32 %n.0, i32 0
+; CHECK: %conv.v.i0.1 = insertelement <2 x i32> undef, i32 %n.0, i32 0
 ; FIXME: When tree pruning is deterministic, include the entire output.
 }

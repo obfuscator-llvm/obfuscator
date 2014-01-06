@@ -31,8 +31,8 @@ static void my_free1(void *p) {
 
 static void test1() {
   void *data = 0;
-  my_malloc1(&data, 4); // expected-warning {{Memory is never released; potential leak of memory pointed to by 'data'}}
-}
+  my_malloc1(&data, 4);
+} // expected-warning {{Potential leak of memory pointed to by 'data'}}
 
 static void test11() {
   void *data = 0;
@@ -43,9 +43,9 @@ static void test11() {
 static void testUniqueingByallocationSiteInTopLevelFunction() {
   void *data = my_malloc2(1, 4);
   data = 0;
-  int x = 5;// expected-warning {{Memory is never released; potential leak of memory pointed to by 'data'}}
-  data = my_malloc2(1, 4);// expected-warning {{Memory is never released; potential leak of memory pointed to by 'data'}}
-}
+  int x = 5;// expected-warning {{Potential leak of memory pointed to by 'data'}}
+  data = my_malloc2(1, 4);
+} // expected-warning {{Potential leak of memory pointed to by 'data'}}
 
 static void test3() {
   void *data = my_malloc2(1, 4);
@@ -81,7 +81,7 @@ static char *reshape(char *in) {
 void testThatRemoveDeadBindingsRunBeforeEachCall() {
     char *v = malloc(12);
     v = reshape(v);
-    v = reshape(v);// expected-warning {{Memory is never released; potential leak of memory pointed to by 'v'}}
+    v = reshape(v);// expected-warning {{Potential leak of memory pointed to by 'v'}}
 }
 
 // Test that we keep processing after 'return;'
@@ -122,10 +122,14 @@ char *strndup(const char *str, size_t n) {
 }
 
 void useStrndup(size_t n) {
-  if (n == 0)
+  if (n == 0) {
     (void)strndup(0, 20); // no-warning
-  else if (n < 5)
+    return;
+  } else if (n < 5) {
     (void)strndup("hi there", n); // no-warning
-  else
-    (void)strndup("hi there", n); // expected-warning{{leak}}
+    return;
+  } else {
+    (void)strndup("hi there", n);
+    return; // expected-warning{{leak}}
+  }
 }

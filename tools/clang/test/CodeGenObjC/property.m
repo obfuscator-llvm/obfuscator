@@ -1,7 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -o - %s | FileCheck %s
-
-// PR13820
-// REQUIRES: LP64
+// RUN: %clang_cc1 -triple i386-unknown-unknown -emit-llvm -o - %s | FileCheck %s
 
 // TODO: actually test most of this instead of just emitting it
 

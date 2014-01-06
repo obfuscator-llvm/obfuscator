@@ -12,16 +12,15 @@ class LitConfig:
     import Test
 
     # Provide access to built-in formats.
-    import LitFormats as formats
+    import TestFormats as formats
 
     # Provide access to built-in utility functions.
     import Util as util
 
     def __init__(self, progname, path, quiet,
                  useValgrind, valgrindLeakCheck, valgrindArgs,
-                 useTclAsSh,
                  noExecute, ignoreStdErr, debug, isWindows,
-                 params):
+                 params, config_prefix = None):
         # The name of the test runner.
         self.progname = progname
         # The items to add to the PATH environment variable.
@@ -30,7 +29,6 @@ class LitConfig:
         self.useValgrind = bool(useValgrind)
         self.valgrindLeakCheck = bool(valgrindLeakCheck)
         self.valgrindUserArgs = list(valgrindArgs)
-        self.useTclAsSh = bool(useTclAsSh)
         self.noExecute = noExecute
         self.ignoreStdErr = ignoreStdErr
         self.debug = debug
@@ -38,18 +36,21 @@ class LitConfig:
         self.params = dict(params)
         self.bashPath = None
 
+        # Configuration files to look for when discovering test suites.
+        self.config_prefix = config_prefix or 'lit'
+        self.config_name = '%s.cfg' % (self.config_prefix,)
+        self.site_config_name = '%s.site.cfg' % (self.config_prefix,)
+        self.local_config_name = '%s.local.cfg' % (self.config_prefix,)
+
         self.numErrors = 0
         self.numWarnings = 0
 
         self.valgrindArgs = []
-        self.valgrindTriple = ""
         if self.useValgrind:
-            self.valgrindTriple = "-vg"
             self.valgrindArgs = ['valgrind', '-q', '--run-libc-freeres=no',
                                  '--tool=memcheck', '--trace-children=yes',
                                  '--error-exitcode=123']
             if self.valgrindLeakCheck:
-                self.valgrindTriple += "_leak"
                 self.valgrindArgs.append('--leak-check=full')
             else:
                 # The default is 'summary'.
@@ -83,7 +84,7 @@ class LitConfig:
                     break
 
         if self.bashPath is None:
-            self.warning("Unable to find 'bash', running Tcl tests internally.")
+            self.warning("Unable to find 'bash'.")
             self.bashPath = ''
 
         return self.bashPath

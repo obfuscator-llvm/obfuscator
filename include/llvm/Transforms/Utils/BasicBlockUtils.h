@@ -12,22 +12,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_UTILS_BASICBLOCK_H
-#define LLVM_TRANSFORMS_UTILS_BASICBLOCK_H
+#ifndef LLVM_TRANSFORMS_UTILS_BASICBLOCKUTILS_H
+#define LLVM_TRANSFORMS_UTILS_BASICBLOCKUTILS_H
 
 // FIXME: Move to this file: BasicBlock::removePredecessor, BB::splitBasicBlock
 
-#include "llvm/BasicBlock.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Support/DebugLoc.h"
 
 namespace llvm {
 
 class AliasAnalysis;
 class Instruction;
+class MDNode;
 class Pass;
 class ReturnInst;
 class TargetLibraryInfo;
+class TerminatorInst;
 
 /// DeleteDeadBlock - Delete the specified block, which must have no
 /// predecessors.
@@ -202,6 +203,29 @@ void SplitLandingPadPredecessors(BasicBlock *OrigBB,ArrayRef<BasicBlock*> Preds,
 /// predecessor.
 ReturnInst *FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
                                        BasicBlock *Pred);
+
+/// SplitBlockAndInsertIfThen - Split the containing block at the
+/// specified instruction - everything before and including Cmp stays
+/// in the old basic block, and everything after Cmp is moved to a
+/// new block. The two blocks are connected by a conditional branch
+/// (with value of Cmp being the condition).
+/// Before:
+///   Head
+///   Cmp
+///   Tail
+/// After:
+///   Head
+///   Cmp
+///   if (Cmp)
+///     ThenBlock
+///   Tail
+///
+/// If Unreachable is true, then ThenBlock ends with
+/// UnreachableInst, otherwise it branches to Tail.
+/// Returns the NewBasicBlock's terminator.
+
+TerminatorInst *SplitBlockAndInsertIfThen(Instruction *Cmp,
+    bool Unreachable, MDNode *BranchWeights = 0);
 
 } // End llvm namespace
 

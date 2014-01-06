@@ -22,8 +22,8 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalVariable.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCInst.h"
 using namespace llvm;
@@ -112,7 +112,7 @@ namespace {
                                            "_GLOBAL_OFFSET_TABLE_");
       unsigned Id = AFI->createPICLabelUId();
       ARMConstantPoolValue *CPV = ARMConstantPoolConstant::Create(GV, Id);
-      unsigned Align = TM->getTargetData()->getPrefTypeAlignment(GV->getType());
+      unsigned Align = TM->getDataLayout()->getPrefTypeAlignment(GV->getType());
       unsigned Idx = MF.getConstantPool()->getConstantPoolIndex(CPV, Align);
 
       MachineBasicBlock &FirstMBB = MF.front();

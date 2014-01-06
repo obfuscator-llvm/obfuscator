@@ -15,10 +15,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TRANSFORMS_UTILS_BYPASSSLOWDIVISION_H
-#define TRANSFORMS_UTILS_BYPASSSLOWDIVISION_H
+#ifndef LLVM_TRANSFORMS_UTILS_BYPASSSLOWDIVISION_H
+#define LLVM_TRANSFORMS_UTILS_BYPASSSLOWDIVISION_H
 
-#include "llvm/Function.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/Function.h"
 
 namespace llvm {
 
@@ -26,7 +27,7 @@ namespace llvm {
 /// profitably bypassed and carried out with a shorter, faster divide.
 bool bypassSlowDivision(Function &F,
                         Function::iterator &I,
-                        const DenseMap<Type*, Type*> &BypassTypeMap);
+                        const DenseMap<unsigned int, unsigned int> &BypassWidth);
 
 } // End llvm namespace
 

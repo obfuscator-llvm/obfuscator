@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 %s -fsyntax-only -verify -std=c99
+// RUN: %clang_cc1 %s -fsyntax-only -verify -std=c99 -Wno-sizeof-array-decay
+// expected-no-diagnostics
 // rdar://6095180
 
 struct s { char c[17]; };

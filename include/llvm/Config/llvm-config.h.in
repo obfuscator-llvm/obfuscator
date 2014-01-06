@@ -41,7 +41,7 @@
 #undef LLVM_HAS_ATOMICS
 
 /* Host triple LLVM will be executed on */
-#undef LLVM_HOSTTRIPLE
+#undef LLVM_HOST_TRIPLE
 
 /* Installation directory for include files */
 #undef LLVM_INCLUDEDIR
@@ -111,6 +111,12 @@
 
 /* Installation prefix directory */
 #undef LLVM_PREFIX
+
+/* Define if we have the Intel JIT API runtime support library */
+#undef LLVM_USE_INTEL_JITEVENTS
+
+/* Define if we have the oprofile JIT-support library */
+#undef LLVM_USE_OPROFILE
 
 /* Major version of the LLVM API */
 #undef LLVM_VERSION_MAJOR

@@ -1,5 +1,4 @@
 # RUN: llvm-mc --disassemble %s -triple=mips-unknown-linux | FileCheck %s
-# CHECK: .section        __TEXT,__text,regular,pure_instructions
 # CHECK: abs.d $f12, $f14
 0x46 0x20 0x73 0x05
 
@@ -404,3 +403,9 @@
 
 # CHECK: xori  $9,  $6, 17767
 0x38 0xc9 0x45 0x67
+
+# CHECK: .set    push
+# CHECK: .set    mips32r2
+# CHECK: rdhwr   $5, $29
+# CHECK: .set    pop
+0x7c 0x05 0xe8 0x3b

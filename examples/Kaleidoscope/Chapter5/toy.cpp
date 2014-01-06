@@ -1,18 +1,18 @@
-#include "llvm/DerivedTypes.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JIT.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Analysis/Verifier.h"
-#include "llvm/Analysis/Passes.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Transforms/Scalar.h"
 #include <cstdio>
-#include <string>
 #include <map>
+#include <string>
 #include <vector>
 using namespace llvm;
 
@@ -829,7 +829,7 @@ int main() {
 
   // Set up the optimizer pipeline.  Start with registering info about how the
   // target lays out data structures.
-  OurFPM.add(new TargetData(*TheExecutionEngine->getTargetData()));
+  OurFPM.add(new DataLayout(*TheExecutionEngine->getDataLayout()));
   // Provide basic AliasAnalysis support for GVN.
   OurFPM.add(createBasicAliasAnalysisPass());
   // Do simple "peephole" optimizations and bit-twiddling optzns.

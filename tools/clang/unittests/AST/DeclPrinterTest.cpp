@@ -69,13 +69,14 @@ public:
                                   StringRef Code,
                                   const std::vector<std::string> &Args,
                                   const DeclarationMatcher &NodeMatch,
-                                  StringRef ExpectedPrinted) {
+                                  StringRef ExpectedPrinted,
+                                  StringRef FileName) {
   PrintMatch Printer;
   MatchFinder Finder;
   Finder.addMatcher(NodeMatch, &Printer);
   OwningPtr<FrontendActionFactory> Factory(newFrontendActionFactory(&Finder));
 
-  if (!runToolOnCodeWithArgs(Factory->create(), Code, Args))
+  if (!runToolOnCodeWithArgs(Factory->create(), Code, Args, FileName))
     return testing::AssertionFailure() << "Parsing error in \"" << Code << "\"";
 
   if (Printer.getNumFoundDecls() == 0)
@@ -102,7 +103,8 @@ public:
   return PrintedDeclMatches(Code,
                             Args,
                             namedDecl(hasName(DeclName)).bind("id"),
-                            ExpectedPrinted);
+                            ExpectedPrinted,
+                            "input.cc");
 }
 
 ::testing::AssertionResult PrintedDeclCXX98Matches(
@@ -113,7 +115,8 @@ public:
   return PrintedDeclMatches(Code,
                             Args,
                             NodeMatch,
-                            ExpectedPrinted);
+                            ExpectedPrinted,
+                            "input.cc");
 }
 
 ::testing::AssertionResult PrintedDeclCXX11Matches(StringRef Code,
@@ -123,7 +126,8 @@ public:
   return PrintedDeclMatches(Code,
                             Args,
                             namedDecl(hasName(DeclName)).bind("id"),
-                            ExpectedPrinted);
+                            ExpectedPrinted,
+                            "input.cc");
 }
 
 ::testing::AssertionResult PrintedDeclCXX11Matches(
@@ -134,7 +138,20 @@ public:
   return PrintedDeclMatches(Code,
                             Args,
                             NodeMatch,
-                            ExpectedPrinted);
+                            ExpectedPrinted,
+                            "input.cc");
+}
+
+::testing::AssertionResult PrintedDeclObjCMatches(
+                                  StringRef Code,
+                                  const DeclarationMatcher &NodeMatch,
+                                  StringRef ExpectedPrinted) {
+  std::vector<std::string> Args(1, "");
+  return PrintedDeclMatches(Code,
+                            Args,
+                            NodeMatch,
+                            ExpectedPrinted,
+                            "input.m");
 }
 
 } // unnamed namespace
@@ -395,8 +412,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl1) {
     "  A();"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A();"
+    "A()"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl2) {
@@ -405,8 +421,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl2) {
     "  A(int a);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A(int a);"
+    "A(int a)"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl3) {
@@ -415,8 +430,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl3) {
     "  A(const A &a);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A(const A &a);"
+    "A(const A &a)"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl4) {
@@ -425,8 +439,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl4) {
     "  A(const A &a, int = 0);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A(const A &a, int = 0);"
+    "A(const A &a, int = 0)"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl5) {
@@ -435,8 +448,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl5) {
     "  A(const A &&a);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A(const A &&a);"
+    "A(const A &&a)"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl6) {
@@ -445,8 +457,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl6) {
     "  explicit A(int a);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "explicit A(int a);"
+    "explicit A(int a)"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl7) {
@@ -455,7 +466,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl7) {
     "  constexpr A();"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
+    "A()"));
     // WRONG; Should be: "constexpr A();"
 }
 
@@ -465,8 +476,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl8) {
     "  A() = default;"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A() = default;"
+    "A() = default"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl9) {
@@ -475,8 +485,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl9) {
     "  A() = delete;"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    " = delete"));
-    // WRONG; Should be: "A() = delete;"
+    "A() = delete"));
 }
 
 TEST(DeclPrinter, TestCXXConstructorDecl10) {
@@ -486,8 +495,7 @@ TEST(DeclPrinter, TestCXXConstructorDecl10) {
     "  A(const A &a);"
     "};",
     constructorDecl(ofClass(hasName("A"))).bind("id"),
-    ""));
-    // WRONG; Should be: "A(const A &a);"
+    "A<T...>(const A<T...> &a)"));
 }
 
 #if !defined(_MSC_VER)
@@ -1216,3 +1224,34 @@ TEST(DeclPrinter, TestTemplateArgumentList15) {
     // Should be: with semicolon, without extra space in "> >"
 }
 
+TEST(DeclPrinter, TestObjCMethod1) {
+  ASSERT_TRUE(PrintedDeclObjCMatches(
+    "__attribute__((objc_root_class)) @interface X\n"
+    "- (int)A:(id)anObject inRange:(long)range;\n"
+    "@end\n"
+    "@implementation X\n"
+    "- (int)A:(id)anObject inRange:(long)range { int printThis; return 0; }\n"
+    "@end\n",
+    namedDecl(hasName("A:inRange:"),
+              hasDescendant(namedDecl(hasName("printThis")))).bind("id"),
+    "- (int) A:(id)anObject inRange:(long)range"));
+}
+
+TEST(DeclPrinter, TestObjCProtocol1) {
+  ASSERT_TRUE(PrintedDeclObjCMatches(
+    "@protocol P1, P2;",
+    namedDecl(hasName("P1")).bind("id"),
+    "@protocol P1;\n"));
+  ASSERT_TRUE(PrintedDeclObjCMatches(
+    "@protocol P1, P2;",
+    namedDecl(hasName("P2")).bind("id"),
+    "@protocol P2;\n"));
+}
+
+TEST(DeclPrinter, TestObjCProtocol2) {
+  ASSERT_TRUE(PrintedDeclObjCMatches(
+    "@protocol P2 @end"
+    "@protocol P1<P2> @end",
+    namedDecl(hasName("P1")).bind("id"),
+    "@protocol P1<P2>\n@end"));
+}

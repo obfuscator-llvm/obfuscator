@@ -15,8 +15,8 @@
 #ifndef SCHEDULEDAGSDNODES_H
 #define SCHEDULEDAGSDNODES_H
 
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 
 namespace llvm {
   /// ScheduleDAGSDNodes - A ScheduleDAG for scheduling SDNode-based DAGs.
@@ -114,7 +114,8 @@ namespace llvm {
     /// EmitSchedule - Insert MachineInstrs into the MachineBasicBlock
     /// according to the order specified in Sequence.
     ///
-    MachineBasicBlock *EmitSchedule(MachineBasicBlock::iterator &InsertPos);
+    virtual MachineBasicBlock*
+    EmitSchedule(MachineBasicBlock::iterator &InsertPos);
 
     virtual void dumpNode(const SUnit *SU) const;
 
@@ -134,13 +135,13 @@ namespace llvm {
       const SDNode *Node;
       unsigned DefIdx;
       unsigned NodeNumDefs;
-      EVT ValueType;
+      MVT ValueType;
     public:
       RegDefIter(const SUnit *SU, const ScheduleDAGSDNodes *SD);
 
       bool IsValid() const { return Node != NULL; }
 
-      EVT GetValue() const {
+      MVT GetValue() const {
         assert(IsValid() && "bad iterator");
         return ValueType;
       }

@@ -1,7 +1,7 @@
 ; RUN: opt < %s -sroa -S | FileCheck %s
 ; RUN: opt < %s -sroa -force-ssa-updater -S | FileCheck %s
 
-target datalayout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-n8:16:32:64"
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-n8:16:32:64"
 
 declare void @llvm.lifetime.start(i64, i8* nocapture)
 declare void @llvm.lifetime.end(i64, i8* nocapture)
@@ -409,8 +409,11 @@ declare void @llvm.memset.p0i8.i32(i8* nocapture, i8, i32, i32, i1) nounwind
 
 define i16 @test5() {
 ; CHECK: @test5
-; CHECK: alloca float
-; CHECK: ret i16 %
+; CHECK-NOT: alloca float
+; CHECK:      %[[cast:.*]] = bitcast float 0.0{{.*}} to i32
+; CHECK-NEXT: %[[shr:.*]] = lshr i32 %[[cast]], 16
+; CHECK-NEXT: %[[trunc:.*]] = trunc i32 %[[shr]] to i16
+; CHECK-NEXT: ret i16 %[[trunc]]
 
 entry:
   %a = alloca [4 x i8]
@@ -497,14 +500,27 @@ entry:
 
 define i64 @test9() {
 ; Ensure we can handle loads off the end of an alloca even when wrapped in
-; weird bit casts and types. The result is undef, but this shouldn't crash
-; anything.
+; weird bit casts and types. This is valid IR due to the alignment and masking
+; off the bits past the end of the alloca.
+;
 ; CHECK: @test9
 ; CHECK-NOT: alloca
-; CHECK: ret i64 undef
+; CHECK:      %[[b2:.*]] = zext i8 26 to i64
+; CHECK-NEXT: %[[s2:.*]] = shl i64 %[[b2]], 16
+; CHECK-NEXT: %[[m2:.*]] = and i64 undef, -16711681
+; CHECK-NEXT: %[[i2:.*]] = or i64 %[[m2]], %[[s2]]
+; CHECK-NEXT: %[[b1:.*]] = zext i8 0 to i64
+; CHECK-NEXT: %[[s1:.*]] = shl i64 %[[b1]], 8
+; CHECK-NEXT: %[[m1:.*]] = and i64 %[[i2]], -65281
+; CHECK-NEXT: %[[i1:.*]] = or i64 %[[m1]], %[[s1]]
+; CHECK-NEXT: %[[b0:.*]] = zext i8 0 to i64
+; CHECK-NEXT: %[[m0:.*]] = and i64 %[[i1]], -256
+; CHECK-NEXT: %[[i0:.*]] = or i64 %[[m0]], %[[b0]]
+; CHECK-NEXT: %[[result:.*]] = and i64 %[[i0]], 16777215
+; CHECK-NEXT: ret i64 %[[result]]
 
 entry:
-  %a = alloca { [3 x i8] }
+  %a = alloca { [3 x i8] }, align 8
   %gep1 = getelementptr inbounds { [3 x i8] }* %a, i32 0, i32 0, i32 0
   store i8 0, i8* %gep1, align 1
   %gep2 = getelementptr inbounds { [3 x i8] }* %a, i32 0, i32 0, i32 1
@@ -513,7 +529,8 @@ entry:
   store i8 26, i8* %gep3, align 1
   %cast = bitcast { [3 x i8] }* %a to { i64 }*
   %elt = getelementptr inbounds { i64 }* %cast, i32 0, i32 0
-  %result = load i64* %elt
+  %load = load i64* %elt
+  %result = and i64 %load, 16777215
   ret i64 %result
 }
 
@@ -572,11 +589,19 @@ entry:
   store i8 0, i8* %a2ptr
   %aiptr = bitcast [3 x i8]* %a to i24*
   %ai = load i24* %aiptr
-; CHCEK-NOT: store
-; CHCEK-NOT: load
-; CHECK:      %[[mask0:.*]] = and i24 undef, -256
-; CHECK-NEXT: %[[mask1:.*]] = and i24 %[[mask0]], -65281
-; CHECK-NEXT: %[[mask2:.*]] = and i24 %[[mask1]], 65535
+; CHECK-NOT: store
+; CHECK-NOT: load
+; CHECK:      %[[ext2:.*]] = zext i8 0 to i24
+; CHECK-NEXT: %[[shift2:.*]] = shl i24 %[[ext2]], 16
+; CHECK-NEXT: %[[mask2:.*]] = and i24 undef, 65535
+; CHECK-NEXT: %[[insert2:.*]] = or i24 %[[mask2]], %[[shift2]]
+; CHECK-NEXT: %[[ext1:.*]] = zext i8 0 to i24
+; CHECK-NEXT: %[[shift1:.*]] = shl i24 %[[ext1]], 8
+; CHECK-NEXT: %[[mask1:.*]] = and i24 %[[insert2]], -65281
+; CHECK-NEXT: %[[insert1:.*]] = or i24 %[[mask1]], %[[shift1]]
+; CHECK-NEXT: %[[ext0:.*]] = zext i8 0 to i24
+; CHECK-NEXT: %[[mask0:.*]] = and i24 %[[insert1]], -256
+; CHECK-NEXT: %[[insert0:.*]] = or i24 %[[mask0]], %[[ext0]]
 
   %biptr = bitcast [3 x i8]* %b to i24*
   store i24 %ai, i24* %biptr
@@ -586,12 +611,12 @@ entry:
   %b1 = load i8* %b1ptr
   %b2ptr = getelementptr [3 x i8]* %b, i64 0, i32 2
   %b2 = load i8* %b2ptr
-; CHCEK-NOT: store
-; CHCEK-NOT: load
-; CHECK:      %[[trunc0:.*]] = trunc i24 %[[mask2]] to i8
-; CHECK-NEXT: %[[shift1:.*]] = lshr i24 %[[mask2]], 8
+; CHECK-NOT: store
+; CHECK-NOT: load
+; CHECK:      %[[trunc0:.*]] = trunc i24 %[[insert0]] to i8
+; CHECK-NEXT: %[[shift1:.*]] = lshr i24 %[[insert0]], 8
 ; CHECK-NEXT: %[[trunc1:.*]] = trunc i24 %[[shift1]] to i8
-; CHECK-NEXT: %[[shift2:.*]] = lshr i24 %[[mask2]], 16
+; CHECK-NEXT: %[[shift2:.*]] = lshr i24 %[[insert0]], 16
 ; CHECK-NEXT: %[[trunc2:.*]] = trunc i24 %[[shift2]] to i8
 
   %bsum0 = add i8 %b0, %b1
@@ -606,11 +631,12 @@ define i32 @test13() {
 ; Ensure we don't crash and handle undefined loads that straddle the end of the
 ; allocation.
 ; CHECK: @test13
-; CHECK: %[[ret:.*]] = zext i16 undef to i32
-; CHECK: ret i32 %[[ret]]
+; CHECK:      %[[value:.*]] = zext i8 0 to i16
+; CHECK-NEXT: %[[ret:.*]] = zext i16 %[[value]] to i32
+; CHECK-NEXT: ret i32 %[[ret]]
 
 entry:
-  %a = alloca [3 x i8]
+  %a = alloca [3 x i8], align 2
   %b0ptr = getelementptr [3 x i8]* %a, i64 0, i32 0
   store i8 0, i8* %b0ptr
   %b1ptr = getelementptr [3 x i8]* %a, i64 0, i32 1
@@ -862,8 +888,7 @@ define void @PR13916.1() {
 ; Ensure that we handle overlapping memcpy intrinsics correctly, especially in
 ; the case where there is a directly identical value for both source and dest.
 ; CHECK: @PR13916.1
-; FIXME: We shouldn't leave this alloca around.
-; CHECK: alloca
+; CHECK-NOT: alloca
 ; CHECK: ret void
 
 entry:
@@ -878,8 +903,7 @@ define void @PR13916.2() {
 ; different pointer value chains, but during rewriting we coalesce them into the
 ; same value.
 ; CHECK: @PR13916.2
-; FIXME: We shouldn't leave this alloca around.
-; CHECK: alloca
+; CHECK-NOT: alloca
 ; CHECK: ret void
 
 entry:
@@ -895,5 +919,401 @@ if.then:
 if.end:
   %gep = getelementptr %PR13916.struct* %a, i32 0, i32 0
   %tmp2 = load i8* %gep
+  ret void
+}
+
+define void @PR13990() {
+; Ensure we can handle cases where processing one alloca causes the other
+; alloca to become dead and get deleted. This might crash or fail under
+; Valgrind if we regress.
+; CHECK: @PR13990
+; CHECK-NOT: alloca
+; CHECK: unreachable
+; CHECK: unreachable
+
+entry:
+  %tmp1 = alloca i8*
+  %tmp2 = alloca i8*
+  br i1 undef, label %bb1, label %bb2
+
+bb1:
+  store i8* undef, i8** %tmp2
+  br i1 undef, label %bb2, label %bb3
+
+bb2:
+  %tmp50 = select i1 undef, i8** %tmp2, i8** %tmp1
+  br i1 undef, label %bb3, label %bb4
+
+bb3:
+  unreachable
+
+bb4:
+  unreachable
+}
+
+define double @PR13969(double %x) {
+; Check that we detect when promotion will un-escape an alloca and iterate to
+; re-try running SROA over that alloca. Without that, the two allocas that are
+; stored into a dead alloca don't get rewritten and promoted.
+; CHECK: @PR13969
+
+entry:
+  %a = alloca double
+  %b = alloca double*
+  %c = alloca double
+; CHECK-NOT: alloca
+
+  store double %x, double* %a
+  store double* %c, double** %b
+  store double* %a, double** %b
+  store double %x, double* %c
+  %ret = load double* %a
+; CHECK-NOT: store
+; CHECK-NOT: load
+
+  ret double %ret
+; CHECK: ret double %x
+}
+
+%PR14034.struct = type { { {} }, i32, %PR14034.list }
+%PR14034.list = type { %PR14034.list*, %PR14034.list* }
+
+define void @PR14034() {
+; This test case tries to form GEPs into the empty leading struct members, and
+; subsequently crashed (under valgrind) before we fixed the PR. The important
+; thing is to handle empty structs gracefully.
+; CHECK: @PR14034
+
+entry:
+  %a = alloca %PR14034.struct
+  %list = getelementptr %PR14034.struct* %a, i32 0, i32 2
+  %prev = getelementptr %PR14034.list* %list, i32 0, i32 1
+  store %PR14034.list* undef, %PR14034.list** %prev
+  %cast0 = bitcast %PR14034.struct* undef to i8*
+  %cast1 = bitcast %PR14034.struct* %a to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %cast0, i8* %cast1, i32 12, i32 0, i1 false)
+  ret void
+}
+
+define i32 @test22(i32 %x) {
+; Test that SROA and promotion is not confused by a grab bax mixture of pointer
+; types involving wrapper aggregates and zero-length aggregate members.
+; CHECK: @test22
+
+entry:
+  %a1 = alloca { { [1 x { i32 }] } }
+  %a2 = alloca { {}, { float }, [0 x i8] }
+  %a3 = alloca { [0 x i8], { [0 x double], [1 x [1 x <4 x i8>]], {} }, { { {} } } }
+; CHECK-NOT: alloca
+
+  %wrap1 = insertvalue [1 x { i32 }] undef, i32 %x, 0, 0
+  %gep1 = getelementptr { { [1 x { i32 }] } }* %a1, i32 0, i32 0, i32 0
+  store [1 x { i32 }] %wrap1, [1 x { i32 }]* %gep1
+
+  %gep2 = getelementptr { { [1 x { i32 }] } }* %a1, i32 0, i32 0
+  %ptrcast1 = bitcast { [1 x { i32 }] }* %gep2 to { [1 x { float }] }*
+  %load1 = load { [1 x { float }] }* %ptrcast1
+  %unwrap1 = extractvalue { [1 x { float }] } %load1, 0, 0
+
+  %wrap2 = insertvalue { {}, { float }, [0 x i8] } undef, { float } %unwrap1, 1
+  store { {}, { float }, [0 x i8] } %wrap2, { {}, { float }, [0 x i8] }* %a2
+
+  %gep3 = getelementptr { {}, { float }, [0 x i8] }* %a2, i32 0, i32 1, i32 0
+  %ptrcast2 = bitcast float* %gep3 to <4 x i8>*
+  %load3 = load <4 x i8>* %ptrcast2
+  %valcast1 = bitcast <4 x i8> %load3 to i32
+
+  %wrap3 = insertvalue [1 x [1 x i32]] undef, i32 %valcast1, 0, 0
+  %wrap4 = insertvalue { [1 x [1 x i32]], {} } undef, [1 x [1 x i32]] %wrap3, 0
+  %gep4 = getelementptr { [0 x i8], { [0 x double], [1 x [1 x <4 x i8>]], {} }, { { {} } } }* %a3, i32 0, i32 1
+  %ptrcast3 = bitcast { [0 x double], [1 x [1 x <4 x i8>]], {} }* %gep4 to { [1 x [1 x i32]], {} }*
+  store { [1 x [1 x i32]], {} } %wrap4, { [1 x [1 x i32]], {} }* %ptrcast3
+
+  %gep5 = getelementptr { [0 x i8], { [0 x double], [1 x [1 x <4 x i8>]], {} }, { { {} } } }* %a3, i32 0, i32 1, i32 1, i32 0
+  %ptrcast4 = bitcast [1 x <4 x i8>]* %gep5 to { {}, float, {} }*
+  %load4 = load { {}, float, {} }* %ptrcast4
+  %unwrap2 = extractvalue { {}, float, {} } %load4, 1
+  %valcast2 = bitcast float %unwrap2 to i32
+
+  ret i32 %valcast2
+; CHECK: ret i32
+}
+
+define void @PR14059.1(double* %d) {
+; In PR14059 a peculiar construct was identified as something that is used
+; pervasively in ARM's ABI-calling-convention lowering: the passing of a struct
+; of doubles via an array of i32 in order to place the data into integer
+; registers. This in turn was missed as an optimization by SROA due to the
+; partial loads and stores of integers to the double alloca we were trying to
+; form and promote. The solution is to widen the integer operations to be
+; whole-alloca operations, and perform the appropriate bitcasting on the
+; *values* rather than the pointers. When this works, partial reads and writes
+; via integers can be promoted away.
+; CHECK: @PR14059.1
+; CHECK-NOT: alloca
+; CHECK: ret void
+
+entry:
+  %X.sroa.0.i = alloca double, align 8
+  %0 = bitcast double* %X.sroa.0.i to i8*
+  call void @llvm.lifetime.start(i64 -1, i8* %0)
+
+  ; Store to the low 32-bits...
+  %X.sroa.0.0.cast2.i = bitcast double* %X.sroa.0.i to i32*
+  store i32 0, i32* %X.sroa.0.0.cast2.i, align 8
+
+  ; Also use a memset to the middle 32-bits for fun.
+  %X.sroa.0.2.raw_idx2.i = getelementptr inbounds i8* %0, i32 2
+  call void @llvm.memset.p0i8.i64(i8* %X.sroa.0.2.raw_idx2.i, i8 0, i64 4, i32 1, i1 false)
+
+  ; Or a memset of the whole thing.
+  call void @llvm.memset.p0i8.i64(i8* %0, i8 0, i64 8, i32 1, i1 false)
+
+  ; Write to the high 32-bits with a memcpy.
+  %X.sroa.0.4.raw_idx4.i = getelementptr inbounds i8* %0, i32 4
+  %d.raw = bitcast double* %d to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %X.sroa.0.4.raw_idx4.i, i8* %d.raw, i32 4, i32 1, i1 false)
+
+  ; Store to the high 32-bits...
+  %X.sroa.0.4.cast5.i = bitcast i8* %X.sroa.0.4.raw_idx4.i to i32*
+  store i32 1072693248, i32* %X.sroa.0.4.cast5.i, align 4
+
+  ; Do the actual math...
+  %X.sroa.0.0.load1.i = load double* %X.sroa.0.i, align 8
+  %accum.real.i = load double* %d, align 8
+  %add.r.i = fadd double %accum.real.i, %X.sroa.0.0.load1.i
+  store double %add.r.i, double* %d, align 8
+  call void @llvm.lifetime.end(i64 -1, i8* %0)
+  ret void
+}
+
+define i64 @PR14059.2({ float, float }* %phi) {
+; Check that SROA can split up alloca-wide integer loads and stores where the
+; underlying alloca has smaller components that are accessed independently. This
+; shows up particularly with ABI lowering patterns coming out of Clang that rely
+; on the particular register placement of a single large integer return value.
+; CHECK: @PR14059.2
+
+entry:
+  %retval = alloca { float, float }, align 4
+  ; CHECK-NOT: alloca
+
+  %0 = bitcast { float, float }* %retval to i64*
+  store i64 0, i64* %0
+  ; CHECK-NOT: store
+
+  %phi.realp = getelementptr inbounds { float, float }* %phi, i32 0, i32 0
+  %phi.real = load float* %phi.realp
+  %phi.imagp = getelementptr inbounds { float, float }* %phi, i32 0, i32 1
+  %phi.imag = load float* %phi.imagp
+  ; CHECK:      %[[realp:.*]] = getelementptr inbounds { float, float }* %phi, i32 0, i32 0
+  ; CHECK-NEXT: %[[real:.*]] = load float* %[[realp]]
+  ; CHECK-NEXT: %[[imagp:.*]] = getelementptr inbounds { float, float }* %phi, i32 0, i32 1
+  ; CHECK-NEXT: %[[imag:.*]] = load float* %[[imagp]]
+
+  %real = getelementptr inbounds { float, float }* %retval, i32 0, i32 0
+  %imag = getelementptr inbounds { float, float }* %retval, i32 0, i32 1
+  store float %phi.real, float* %real
+  store float %phi.imag, float* %imag
+  ; CHECK-NEXT: %[[real_convert:.*]] = bitcast float %[[real]] to i32
+  ; CHECK-NEXT: %[[imag_convert:.*]] = bitcast float %[[imag]] to i32
+  ; CHECK-NEXT: %[[imag_ext:.*]] = zext i32 %[[imag_convert]] to i64
+  ; CHECK-NEXT: %[[imag_shift:.*]] = shl i64 %[[imag_ext]], 32
+  ; CHECK-NEXT: %[[imag_mask:.*]] = and i64 undef, 4294967295
+  ; CHECK-NEXT: %[[imag_insert:.*]] = or i64 %[[imag_mask]], %[[imag_shift]]
+  ; CHECK-NEXT: %[[real_ext:.*]] = zext i32 %[[real_convert]] to i64
+  ; CHECK-NEXT: %[[real_mask:.*]] = and i64 %[[imag_insert]], -4294967296
+  ; CHECK-NEXT: %[[real_insert:.*]] = or i64 %[[real_mask]], %[[real_ext]]
+
+  %1 = load i64* %0, align 1
+  ret i64 %1
+  ; CHECK-NEXT: ret i64 %[[real_insert]]
+}
+
+define void @PR14105({ [16 x i8] }* %ptr) {
+; Ensure that when rewriting the GEP index '-1' for this alloca we preserve is
+; sign as negative. We use a volatile memcpy to ensure promotion never actually
+; occurs.
+; CHECK: @PR14105
+
+entry:
+  %a = alloca { [16 x i8] }, align 8
+; CHECK: alloca [16 x i8], align 8
+
+  %gep = getelementptr inbounds { [16 x i8] }* %ptr, i64 -1
+; CHECK-NEXT: getelementptr inbounds { [16 x i8] }* %ptr, i64 -1, i32 0, i64 0
+
+  %cast1 = bitcast { [16 x i8 ] }* %gep to i8*
+  %cast2 = bitcast { [16 x i8 ] }* %a to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %cast1, i8* %cast2, i32 16, i32 8, i1 true)
+  ret void
+; CHECK: ret
+}
+
+define void @PR14465() {
+; Ensure that we don't crash when analyzing a alloca larger than the maximum
+; integer type width (MAX_INT_BITS) supported by llvm (1048576*32 > (1<<23)-1).
+; CHECK: @PR14465
+
+  %stack = alloca [1048576 x i32], align 16
+; CHECK: alloca [1048576 x i32]
+  %cast = bitcast [1048576 x i32]* %stack to i8*
+  call void @llvm.memset.p0i8.i64(i8* %cast, i8 -2, i64 4194304, i32 16, i1 false)
+  ret void
+; CHECK: ret
+}
+
+define void @PR14548(i1 %x) {
+; Handle a mixture of i1 and i8 loads and stores to allocas. This particular
+; pattern caused crashes and invalid output in the PR, and its nature will
+; trigger a mixture in several permutations as we resolve each alloca
+; iteratively.
+; Note that we don't do a particularly good *job* of handling these mixtures,
+; but the hope is that this is very rare.
+; CHECK: @PR14548
+
+entry:
+  %a = alloca <{ i1 }>, align 8
+  %b = alloca <{ i1 }>, align 8
+; CHECK:      %[[a:.*]] = alloca i8, align 8
+
+  %b.i1 = bitcast <{ i1 }>* %b to i1*
+  store i1 %x, i1* %b.i1, align 8
+  %b.i8 = bitcast <{ i1 }>* %b to i8*
+  %foo = load i8* %b.i8, align 1
+; CHECK-NEXT: {{.*}} = zext i1 %x to i8
+; CHECK-NEXT: %[[ext:.*]] = zext i1 %x to i8
+; CHECK-NEXT: store i8 %[[ext]], i8* %[[a]], align 8
+; CHECK-NEXT: {{.*}} = load i8* %[[a]], align 8
+
+  %a.i8 = bitcast <{ i1 }>* %a to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %a.i8, i8* %b.i8, i32 1, i32 1, i1 false) nounwind
+  %bar = load i8* %a.i8, align 1
+  %a.i1 = getelementptr inbounds <{ i1 }>* %a, i32 0, i32 0
+  %baz = load i1* %a.i1, align 1
+; CHECK-NEXT: %[[a_cast:.*]] = bitcast i8* %[[a]] to i1*
+; CHECK-NEXT: {{.*}} = load i1* %[[a_cast]], align 8
+
+  ret void
+}
+
+define <3 x i8> @PR14572.1(i32 %x) {
+; Ensure that a split integer store which is wider than the type size of the
+; alloca (relying on the alloc size padding) doesn't trigger an assert.
+; CHECK: @PR14572.1
+
+entry:
+  %a = alloca <3 x i8>, align 4
+; CHECK-NOT: alloca
+
+  %cast = bitcast <3 x i8>* %a to i32*
+  store i32 %x, i32* %cast, align 1
+  %y = load <3 x i8>* %a, align 4
+  ret <3 x i8> %y
+; CHECK: ret <3 x i8>
+}
+
+define i32 @PR14572.2(<3 x i8> %x) {
+; Ensure that a split integer load which is wider than the type size of the
+; alloca (relying on the alloc size padding) doesn't trigger an assert.
+; CHECK: @PR14572.2
+
+entry:
+  %a = alloca <3 x i8>, align 4
+; CHECK-NOT: alloca
+
+  store <3 x i8> %x, <3 x i8>* %a, align 1
+  %cast = bitcast <3 x i8>* %a to i32*
+  %y = load i32* %cast, align 4
+  ret i32 %y
+; CHECK: ret i32
+}
+
+define i32 @PR14601(i32 %x) {
+; Don't try to form a promotable integer alloca when there is a variable length
+; memory intrinsic.
+; CHECK: @PR14601
+
+entry:
+  %a = alloca i32
+; CHECK: alloca
+
+  %a.i8 = bitcast i32* %a to i8*
+  call void @llvm.memset.p0i8.i32(i8* %a.i8, i8 0, i32 %x, i32 1, i1 false)
+  %v = load i32* %a
+  ret i32 %v
+}
+
+define void @PR15674(i8* %data, i8* %src, i32 %size) {
+; Arrange (via control flow) to have unmerged stores of a particular width to
+; an alloca where we incrementally store from the end of the array toward the
+; beginning of the array. Ensure that the final integer store, despite being
+; convertable to the integer type that we end up promoting this alloca toward,
+; doesn't get widened to a full alloca store.
+; CHECK: @PR15674
+
+entry:
+  %tmp = alloca [4 x i8], align 1
+; CHECK: alloca i32
+
+  switch i32 %size, label %end [
+    i32 4, label %bb4
+    i32 3, label %bb3
+    i32 2, label %bb2
+    i32 1, label %bb1
+  ]
+
+bb4:
+  %src.gep3 = getelementptr inbounds i8* %src, i32 3
+  %src.3 = load i8* %src.gep3
+  %tmp.gep3 = getelementptr inbounds [4 x i8]* %tmp, i32 0, i32 3
+  store i8 %src.3, i8* %tmp.gep3
+; CHECK: store i8
+
+  br label %bb3
+
+bb3:
+  %src.gep2 = getelementptr inbounds i8* %src, i32 2
+  %src.2 = load i8* %src.gep2
+  %tmp.gep2 = getelementptr inbounds [4 x i8]* %tmp, i32 0, i32 2
+  store i8 %src.2, i8* %tmp.gep2
+; CHECK: store i8
+
+  br label %bb2
+
+bb2:
+  %src.gep1 = getelementptr inbounds i8* %src, i32 1
+  %src.1 = load i8* %src.gep1
+  %tmp.gep1 = getelementptr inbounds [4 x i8]* %tmp, i32 0, i32 1
+  store i8 %src.1, i8* %tmp.gep1
+; CHECK: store i8
+
+  br label %bb1
+
+bb1:
+  %src.gep0 = getelementptr inbounds i8* %src, i32 0
+  %src.0 = load i8* %src.gep0
+  %tmp.gep0 = getelementptr inbounds [4 x i8]* %tmp, i32 0, i32 0
+  store i8 %src.0, i8* %tmp.gep0
+; CHECK: store i8
+
+  br label %end
+
+end:
+  %tmp.raw = bitcast [4 x i8]* %tmp to i8*
+  call void @llvm.memcpy.p0i8.p0i8.i32(i8* %data, i8* %tmp.raw, i32 %size, i32 1, i1 false)
+  ret void
+; CHECK: ret void
+}
+
+define void @PR15805(i1 %a, i1 %b) {
+; CHECK: @PR15805
+; CHECK: select i1 undef, i64* %c, i64* %c
+; CHECK: ret void
+
+  %c = alloca i64, align 8
+  %p.0.c = select i1 undef, i64* %c, i64* %c
+  %cond.in = select i1 undef, i64* %p.0.c, i64* %c
+  %cond = load i64* %cond.in, align 8
   ret void
 }

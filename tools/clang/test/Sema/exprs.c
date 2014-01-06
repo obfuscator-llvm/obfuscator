@@ -40,7 +40,7 @@ _Complex double test1() {
 }
 
 _Complex double test2() {
-  return 1.0if;    // expected-warning {{imaginary constants are an extension}}
+  return 1.0if;    // expected-warning {{imaginary constants are a GNU extension}}
 }
 
 // rdar://6097308
@@ -94,7 +94,7 @@ int test8(void) {
 struct f { int x : 4;  float y[]; };
 int test9(struct f *P) {
   int R;
-  R = __alignof(P->x);  // expected-error {{invalid application of '__alignof' to bit-field}}
+  R = __alignof(P->x);  // expected-error {{invalid application of 'alignof' to bit-field}}
   R = __alignof(P->y);   // ok.
   R = sizeof(P->x); // expected-error {{invalid application of 'sizeof' to bit-field}}
   return R;

@@ -5,7 +5,8 @@
 void test_attributes() {
   auto nrl = [](int x) -> int { if (x > 0) return x; }; // expected-warning{{control may reach end of non-void lambda}}
 
-  auto nrl2 = []() [[noreturn]] { return; }; // expected-error{{lambda declared 'noreturn' should not return}}
+  // FIXME: GCC accepts the [[gnu::noreturn]] attribute here.
+  auto nrl2 = []() [[gnu::noreturn]] { return; }; // expected-warning{{attribute 'noreturn' ignored}}
 }
 
 template<typename T>
@@ -38,12 +39,10 @@ void test_quals() {
   bogus_override_if_virtual<decltype(l)> bogus;
 }
 
-// Default arguments (8.3.6) shall not be specified in the
-// parameter-declaration-clause of a lambda- declarator.
-// Note: Removed by core issue 974.
+// Core issue 974: default arguments (8.3.6) may be specified in the
+// parameter-declaration-clause of a lambda-declarator.
 int test_default_args() {
-  return [](int i = 5,  // expected-warning{{C++11 forbids default arguments for lambda expressions}}
-            int j = 17) { return i+j;}(5, 6);
+  return [](int i = 5, int j = 17) { return i+j;}(5, 6);
 }
 
 // Any exception-specification specified on a lambda-expression

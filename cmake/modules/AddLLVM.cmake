@@ -135,28 +135,29 @@ endmacro(add_llvm_target)
 # lld, and Polly. This adds two options. One for the source directory of the
 # project, which defaults to ${CMAKE_CURRENT_SOURCE_DIR}/${name}. Another to
 # enable or disable building it with everthing else.
+# Additional parameter can be specified as the name of directory.
 macro(add_llvm_external_project name)
-  string(TOUPPER ${name} nameUPPER)
-  set(LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${name}"
+  set(add_llvm_external_dir "${ARGN}")
+  if("${add_llvm_external_dir}" STREQUAL "")
+    set(add_llvm_external_dir ${name})
+  endif()
+  string(REPLACE "-" "_" nameUNDERSCORE ${name})
+  string(TOUPPER ${nameUNDERSCORE} nameUPPER)
+  set(LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${add_llvm_external_dir}"
       CACHE PATH "Path to ${name} source directory")
   if (NOT ${LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR} STREQUAL ""
       AND EXISTS ${LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR}/CMakeLists.txt)
     option(LLVM_EXTERNAL_${nameUPPER}_BUILD
            "Whether to build ${name} as part of LLVM" ON)
     if (LLVM_EXTERNAL_${nameUPPER}_BUILD)
-      add_subdirectory(${LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR} ${name})
+      add_subdirectory(${LLVM_EXTERNAL_${nameUPPER}_SOURCE_DIR} ${add_llvm_external_dir})
     endif()
   endif()
 endmacro(add_llvm_external_project)
 
 # Generic support for adding a unittest.
 function(add_unittest test_suite test_name)
-  if (CMAKE_BUILD_TYPE)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY
-      ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
-  else()
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-  endif()
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
   if( NOT LLVM_BUILD_TESTS )
     set(EXCLUDE_FROM_ALL ON)
   endif()
@@ -233,8 +234,8 @@ function(configure_lit_site_cfg input output)
 
   set(LLVM_SOURCE_DIR ${LLVM_MAIN_SRC_DIR})
   set(LLVM_BINARY_DIR ${LLVM_BINARY_DIR})
-  set(LLVM_TOOLS_DIR "${LLVM_TOOLS_BINARY_DIR}/%(build_config)s")
-  set(LLVM_LIBS_DIR "${LLVM_BINARY_DIR}/lib/%(build_config)s")
+  set(LLVM_TOOLS_DIR "${LLVM_TOOLS_BINARY_DIR}/%(build_mode)s")
+  set(LLVM_LIBS_DIR "${LLVM_BINARY_DIR}/lib/%(build_mode)s")
   set(PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
   set(ENABLE_SHARED ${LLVM_SHARED_LIBS_ENABLED})
   set(SHLIBPATH_VAR ${SHLIBPATH_VAR})
@@ -245,8 +246,8 @@ function(configure_lit_site_cfg input output)
     set(ENABLE_ASSERTIONS "0")
   endif()
 
-  set(HOST_OS ${CMAKE_HOST_SYSTEM_NAME})
-  set(HOST_ARCH ${CMAKE_HOST_SYSTEM_PROCESSOR})
+  set(HOST_OS ${CMAKE_SYSTEM_NAME})
+  set(HOST_ARCH ${CMAKE_SYSTEM_PROCESSOR})
 
   configure_file(${input} ${output} @ONLY)
 endfunction()
@@ -260,29 +261,37 @@ function(add_lit_target target comment)
   set(LIT_COMMAND
     ${PYTHON_EXECUTABLE}
     ${LLVM_MAIN_SRC_DIR}/utils/lit/lit.py
-    --param build_config=${CMAKE_CFG_INTDIR}
-    --param build_mode=${RUNTIME_BUILD_MODE}
+    --param build_mode=${CMAKE_CFG_INTDIR}
     ${LIT_ARGS}
     )
   foreach(param ${ARG_PARAMS})
     list(APPEND LIT_COMMAND --param ${param})
   endforeach()
-  add_custom_target(${target}
-    COMMAND ${LIT_COMMAND} ${ARG_DEFAULT_ARGS}
-    COMMENT "${comment}"
-    )
-  add_dependencies(${target} ${ARG_DEPENDS})
+  if( ARG_DEPENDS )
+    add_custom_target(${target}
+      COMMAND ${LIT_COMMAND} ${ARG_DEFAULT_ARGS}
+      COMMENT "${comment}"
+      )
+    add_dependencies(${target} ${ARG_DEPENDS})
+  else()
+    add_custom_target(${target}
+      COMMAND cmake -E echo "${target} does nothing, no tools built.")
+    message(STATUS "${target} does nothing.")
+  endif()
 endfunction()
 
 # A function to add a set of lit test suites to be driven through 'check-*' targets.
 function(add_lit_testsuite target comment)
   parse_arguments(ARG "PARAMS;DEPENDS;ARGS" "" ${ARGN})
 
-  # Register the testsuites, params and depends for the global check rule.
-  set_property(GLOBAL APPEND PROPERTY LLVM_LIT_TESTSUITES ${ARG_DEFAULT_ARGS})
-  set_property(GLOBAL APPEND PROPERTY LLVM_LIT_PARAMS ${ARG_PARAMS})
-  set_property(GLOBAL APPEND PROPERTY LLVM_LIT_DEPENDS ${ARG_DEPENDS})
-  set_property(GLOBAL APPEND PROPERTY LLVM_LIT_EXTRA_ARGS ${ARG_ARGS})
+  # EXCLUDE_FROM_ALL excludes the test ${target} out of check-all.
+  if(NOT EXCLUDE_FROM_ALL)
+    # Register the testsuites, params and depends for the global check rule.
+    set_property(GLOBAL APPEND PROPERTY LLVM_LIT_TESTSUITES ${ARG_DEFAULT_ARGS})
+    set_property(GLOBAL APPEND PROPERTY LLVM_LIT_PARAMS ${ARG_PARAMS})
+    set_property(GLOBAL APPEND PROPERTY LLVM_LIT_DEPENDS ${ARG_DEPENDS})
+    set_property(GLOBAL APPEND PROPERTY LLVM_LIT_EXTRA_ARGS ${ARG_ARGS})
+  endif()
 
   # Produce a specific suffixed check rule.
   add_lit_target(${target} ${comment}

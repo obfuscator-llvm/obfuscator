@@ -105,6 +105,18 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::Linux, T.getOS());
   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
 
+  T = Triple("powerpc-ibm-aix");
+  EXPECT_EQ(Triple::ppc, T.getArch());
+  EXPECT_EQ(Triple::IBM, T.getVendor());
+  EXPECT_EQ(Triple::AIX, T.getOS());
+  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+
+  T = Triple("powerpc64-ibm-aix");
+  EXPECT_EQ(Triple::ppc64, T.getArch());
+  EXPECT_EQ(Triple::IBM, T.getVendor());
+  EXPECT_EQ(Triple::AIX, T.getOS());
+  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+
   T = Triple("powerpc-dunno-notsure");
   EXPECT_EQ(Triple::ppc, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
@@ -357,11 +369,6 @@ TEST(TripleTest, BitWidthArchVariants) {
   EXPECT_EQ(Triple::nvptx, T.get32BitArchVariant().getArch());
   EXPECT_EQ(Triple::nvptx64, T.get64BitArchVariant().getArch());
 
-
-  T.setArch(Triple::gpu_32);
-  EXPECT_EQ(Triple::gpu_32, T.get32BitArchVariant().getArch());
-  EXPECT_EQ(Triple::gpu_64, T.get64BitArchVariant().getArch());
-
   T.setArch(Triple::sparc);
   EXPECT_EQ(Triple::sparc, T.get32BitArchVariant().getArch());
   EXPECT_EQ(Triple::sparcv9, T.get64BitArchVariant().getArch());
@@ -386,11 +393,6 @@ TEST(TripleTest, BitWidthArchVariants) {
   EXPECT_EQ(Triple::nvptx, T.get32BitArchVariant().getArch());
   EXPECT_EQ(Triple::nvptx64, T.get64BitArchVariant().getArch());
 
-
-  T.setArch(Triple::gpu_64);
-  EXPECT_EQ(Triple::gpu_32, T.get32BitArchVariant().getArch());
-  EXPECT_EQ(Triple::gpu_64, T.get64BitArchVariant().getArch());
-
   T.setArch(Triple::sparcv9);
   EXPECT_EQ(Triple::sparc, T.get32BitArchVariant().getArch());
   EXPECT_EQ(Triple::sparcv9, T.get64BitArchVariant().getArch());
@@ -405,6 +407,11 @@ TEST(TripleTest, getOSVersion) {
   unsigned Major, Minor, Micro;
 
   T = Triple("i386-apple-darwin9");
+  EXPECT_TRUE(T.isMacOSX());
+  EXPECT_FALSE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_TRUE(T.isArch32Bit());
+  EXPECT_FALSE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)5, Minor);
@@ -415,6 +422,11 @@ TEST(TripleTest, getOSVersion) {
   EXPECT_EQ((unsigned)0, Micro);
 
   T = Triple("x86_64-apple-darwin9");
+  EXPECT_TRUE(T.isMacOSX());
+  EXPECT_FALSE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_FALSE(T.isArch32Bit());
+  EXPECT_TRUE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)5, Minor);
@@ -425,6 +437,11 @@ TEST(TripleTest, getOSVersion) {
   EXPECT_EQ((unsigned)0, Micro);
 
   T = Triple("x86_64-apple-macosx");
+  EXPECT_TRUE(T.isMacOSX());
+  EXPECT_FALSE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_FALSE(T.isArch32Bit());
+  EXPECT_TRUE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)4, Minor);
@@ -435,6 +452,11 @@ TEST(TripleTest, getOSVersion) {
   EXPECT_EQ((unsigned)0, Micro);
 
   T = Triple("x86_64-apple-macosx10.7");
+  EXPECT_TRUE(T.isMacOSX());
+  EXPECT_FALSE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_FALSE(T.isArch32Bit());
+  EXPECT_TRUE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)7, Minor);
@@ -445,6 +467,11 @@ TEST(TripleTest, getOSVersion) {
   EXPECT_EQ((unsigned)0, Micro);
 
   T = Triple("armv7-apple-ios");
+  EXPECT_FALSE(T.isMacOSX());
+  EXPECT_TRUE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_TRUE(T.isArch32Bit());
+  EXPECT_FALSE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)4, Minor);
@@ -455,6 +482,11 @@ TEST(TripleTest, getOSVersion) {
   EXPECT_EQ((unsigned)0, Micro);
 
   T = Triple("armv7-apple-ios5.0");
+  EXPECT_FALSE(T.isMacOSX());
+  EXPECT_TRUE(T.isiOS());
+  EXPECT_FALSE(T.isArch16Bit());
+  EXPECT_TRUE(T.isArch32Bit());
+  EXPECT_FALSE(T.isArch64Bit());
   T.getMacOSXVersion(Major, Minor, Micro);
   EXPECT_EQ((unsigned)10, Major);
   EXPECT_EQ((unsigned)4, Minor);

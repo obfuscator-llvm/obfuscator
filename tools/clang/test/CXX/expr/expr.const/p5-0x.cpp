@@ -7,8 +7,8 @@ namespace std_example {
 
 struct A {
   constexpr A(int i) : val(i) { }
-  constexpr operator int() { return val; }
-  constexpr operator long() { return 43; }
+  constexpr operator int() const { return val; }
+  constexpr operator long() const { return 43; }
 private:
   int val;
 };
@@ -21,17 +21,17 @@ int ary[a]; // expected-error {{size of array has non-integer type 'const std_ex
 
 struct OK {
   constexpr OK() {}
-  constexpr operator int() { return 8; }
+  constexpr operator int() const { return 8; }
 } constexpr ok;
 extern struct Incomplete incomplete; // expected-note 4{{forward decl}}
 struct Explicit {
   constexpr Explicit() {}
-  constexpr explicit operator int() { return 4; } // expected-note 4{{here}}
+  constexpr explicit operator int() const { return 4; } // expected-note 4{{here}}
 } constexpr expl;
 struct Ambiguous {
   constexpr Ambiguous() {}
-  constexpr operator int() { return 2; } // expected-note 4{{here}}
-  constexpr operator long() { return 1; } // expected-note 4{{here}}
+  constexpr operator int() const { return 2; } // expected-note 4{{here}}
+  constexpr operator long() const { return 1; } // expected-note 4{{here}}
 } constexpr ambig;
 
 constexpr int test_ok = ok; // ok
@@ -61,10 +61,10 @@ enum NotFixed {
 // [dcl.align]p2: When the alignment-specifier is of the form
 // alignas(assignment-expression), the assignment-expression shall be an
 // integral constant expression
-int alignas(ok) alignas1;
-int alignas(incomplete) alignas2; // expected-error {{incomplete}}
-int alignas(expl) alignas3; // expected-error {{explicit conversion}}
-int alignas(ambig) alignas4; // expected-error {{ambiguous conversion}}
+alignas(ok) int alignas1;
+alignas(incomplete) int alignas2; // expected-error {{incomplete}}
+alignas(expl) int alignas3; // expected-error {{explicit conversion}}
+alignas(ambig) int alignas4; // expected-error {{ambiguous conversion}}
 
 // [dcl.array]p1: If the constant-expression is present, it shall be an integral
 // constant expression

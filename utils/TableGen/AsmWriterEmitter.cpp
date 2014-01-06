@@ -566,9 +566,9 @@ emitRegisterNameString(raw_ostream &O, StringRef AltName,
         std::vector<std::string> AltNames =
           Reg.TheDef->getValueAsListOfStrings("AltNames");
         if (AltNames.size() <= Idx)
-          throw TGError(Reg.TheDef->getLoc(),
-                        (Twine("Register definition missing alt name for '") +
-                        AltName + "'.").str());
+          PrintFatalError(Reg.TheDef->getLoc(),
+            (Twine("Register definition missing alt name for '") +
+             AltName + "'.").str());
         AsmName = AltNames[Idx];
       }
     }
@@ -792,7 +792,7 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
     if (!R->getValueAsBit("EmitAlias"))
       continue; // We were told not to emit the alias, but to emit the aliasee.
     const DagInit *DI = R->getValueAsDag("ResultInst");
-    const DefInit *Op = dynamic_cast<const DefInit*>(DI->getOperator());
+    const DefInit *Op = cast<DefInit>(DI->getOperator());
     AliasMap[getQualifiedName(Op->getDef())].push_back(Alias);
   }
 
@@ -842,8 +842,11 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
 
             if (!IAP->isOpMapped(ROName)) {
               IAP->addOperand(ROName, i);
+              Record *R = CGA->ResultOperands[i].getRecord();
+              if (R->isSubClassOf("RegisterOperand"))
+                R = R->getValueAsDef("RegClass");
               Cond = std::string("MRI.getRegClass(") + Target.getName() + "::" +
-                CGA->ResultOperands[i].getRecord()->getName() + "RegClassID)"
+                R->getName() + "RegClassID)"
                 ".contains(MI->getOperand(" + llvm::utostr(i) + ").getReg())";
               IAP->addCond(Cond);
             } else {
@@ -863,12 +866,18 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
 
           break;
         }
-        case CodeGenInstAlias::ResultOperand::K_Imm:
-          Cond = std::string("MI->getOperand(") +
-            llvm::utostr(i) + ").getImm() == " +
-            llvm::utostr(CGA->ResultOperands[i].getImm());
+        case CodeGenInstAlias::ResultOperand::K_Imm: {
+          std::string Op = "MI->getOperand(" + llvm::utostr(i) + ")";
+
+          // Just because the alias has an immediate result, doesn't mean the
+          // MCInst will. An MCExpr could be present, for example.
+          IAP->addCond(Op + ".isImm()");
+
+          Cond = Op + ".getImm() == "
+            + llvm::utostr(CGA->ResultOperands[i].getImm());
           IAP->addCond(Cond);
           break;
+        }
         case CodeGenInstAlias::ResultOperand::K_Reg:
           // If this is zero_reg, something's playing tricks we're not
           // equipped to handle.

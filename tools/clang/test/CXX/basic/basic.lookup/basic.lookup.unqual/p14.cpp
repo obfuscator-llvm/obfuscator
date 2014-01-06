@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
+// expected-no-diagnostics
 
 // C++0x [basic.lookup.unqual]p14:
 //   If a variable member of a namespace is defined outside of the
@@ -16,3 +17,56 @@ namespace N {
 int i = 2; 
 N::S N::j = i;
 N::S N::j2(i);
+
+// <rdar://problem/13317030>
+namespace M {
+  class X { };
+  inline X operator-(int, X);
+
+  template<typename T>
+  class Y { };
+
+  typedef Y<float> YFloat;
+
+  namespace yfloat {
+    YFloat operator-(YFloat, YFloat);
+  }
+  using namespace yfloat;
+}
+
+using namespace M;
+
+namespace M {
+
+class Other {
+  void foo(YFloat a, YFloat b);
+};
+
+}
+
+void Other::foo(YFloat a, YFloat b) {
+  YFloat c = a - b;
+}
+
+// <rdar://problem/13540899>
+namespace Other {
+  void other_foo();
+}
+
+namespace M2 {
+  using namespace Other;
+
+  extern "C" {
+    namespace MInner {
+      extern "C" {
+        class Bar { 
+          void bar();
+        };
+      }
+    }
+  }
+}
+
+void M2::MInner::Bar::bar() {
+  other_foo();
+}

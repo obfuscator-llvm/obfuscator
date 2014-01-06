@@ -12,14 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Rewrite/Core/HTMLRewrite.h"
-#include "clang/Lex/TokenConcatenation.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/SmallString.h"
+#include "clang/Lex/Preprocessor.h"
+#include "clang/Lex/TokenConcatenation.h"
+#include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
@@ -484,6 +483,7 @@ void html::HighlightMacros(Rewriter &R, FileID FID, const Preprocessor& PP) {
   // Temporarily change the diagnostics object so that we ignore any generated
   // diagnostics from this pass.
   DiagnosticsEngine TmpDiags(PP.getDiagnostics().getDiagnosticIDs(),
+                             &PP.getDiagnostics().getDiagnosticOptions(),
                       new IgnoringDiagConsumer);
 
   // FIXME: This is a huge hack; we reuse the input preprocessor because we want

@@ -1,5 +1,3 @@
-set(LLVM_REQUIRES_EH 1)
-set(LLVM_REQUIRES_RTTI 1)
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
@@ -10,6 +8,7 @@ add_tablegen(llvm-tblgen LLVM
   CodeEmitterGen.cpp
   CodeGenDAGPatterns.cpp
   CodeGenInstruction.cpp
+  CodeGenMapTable.cpp
   CodeGenRegisters.cpp
   CodeGenSchedule.cpp
   CodeGenTarget.cpp
@@ -20,11 +19,11 @@ add_tablegen(llvm-tblgen LLVM
   DAGISelMatcher.cpp
   DFAPacketizerEmitter.cpp
   DisassemblerEmitter.cpp
-  EDEmitter.cpp
   FastISelEmitter.cpp
   FixedLenDecoderEmitter.cpp
   InstrInfoEmitter.cpp
   IntrinsicEmitter.cpp
+  OptParserEmitter.cpp
   PseudoLoweringEmitter.cpp
   RegisterInfoEmitter.cpp
   SetTheory.cpp
@@ -34,4 +33,5 @@ add_tablegen(llvm-tblgen LLVM
   X86DisassemblerTables.cpp
   X86ModRMFilters.cpp
   X86RecognizableInstr.cpp
+  CTagsEmitter.cpp
   )

@@ -14,21 +14,21 @@
 
 #define DEBUG_TYPE "lazy-value-info"
 #include "llvm/Analysis/LazyValueInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Constants.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/ConstantRange.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/PatternMatch.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ValueHandle.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLibraryInfo.h"
 #include <map>
 #include <stack>
 using namespace llvm;
@@ -212,7 +212,7 @@ public:
 
         // Unless we can prove that the two Constants are different, we must
         // move to overdefined.
-        // FIXME: use TargetData/TargetLibraryInfo for smarter constant folding.
+        // FIXME: use DataLayout/TargetLibraryInfo for smarter constant folding.
         if (ConstantInt *Res = dyn_cast<ConstantInt>(
                 ConstantFoldCompareInstOperands(CmpInst::ICMP_NE,
                                                 getConstant(),
@@ -238,7 +238,7 @@ public:
 
         // Unless we can prove that the two Constants are different, we must
         // move to overdefined.
-        // FIXME: use TargetData/TargetLibraryInfo for smarter constant folding.
+        // FIXME: use DataLayout/TargetLibraryInfo for smarter constant folding.
         if (ConstantInt *Res = dyn_cast<ConstantInt>(
                 ConstantFoldCompareInstOperands(CmpInst::ICMP_NE,
                                                 getNotConstant(),
@@ -294,7 +294,7 @@ raw_ostream &operator<<(raw_ostream &OS, const LVILatticeVal &Val) {
 //===----------------------------------------------------------------------===//
 
 namespace {
-  /// LVIValueHandle - A callback value handle update the cache when
+  /// LVIValueHandle - A callback value handle updates the cache when
   /// values are erased.
   class LazyValueInfoCache;
   struct LVIValueHandle : public CallbackVH {
@@ -557,13 +557,11 @@ bool LazyValueInfoCache::solveBlockValue(Value *Val, BasicBlock *BB) {
 static bool InstructionDereferencesPointer(Instruction *I, Value *Ptr) {
   if (LoadInst *L = dyn_cast<LoadInst>(I)) {
     return L->getPointerAddressSpace() == 0 &&
-        GetUnderlyingObject(L->getPointerOperand()) ==
-        GetUnderlyingObject(Ptr);
+        GetUnderlyingObject(L->getPointerOperand()) == Ptr;
   }
   if (StoreInst *S = dyn_cast<StoreInst>(I)) {
     return S->getPointerAddressSpace() == 0 &&
-        GetUnderlyingObject(S->getPointerOperand()) ==
-        GetUnderlyingObject(Ptr);
+        GetUnderlyingObject(S->getPointerOperand()) == Ptr;
   }
   if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I)) {
     if (MI->isVolatile()) return false;
@@ -573,11 +571,11 @@ static bool InstructionDereferencesPointer(Instruction *I, Value *Ptr) {
     if (!Len || Len->isZero()) return false;
 
     if (MI->getDestAddressSpace() == 0)
-      if (MI->getRawDest() == Ptr || MI->getDest() == Ptr)
+      if (GetUnderlyingObject(MI->getRawDest()) == Ptr)
         return true;
     if (MemTransferInst *MTI = dyn_cast<MemTransferInst>(MI))
       if (MTI->getSourceAddressSpace() == 0)
-        if (MTI->getRawSource() == Ptr || MTI->getSource() == Ptr)
+        if (GetUnderlyingObject(MTI->getRawSource()) == Ptr)
           return true;
   }
   return false;
@@ -591,13 +589,19 @@ bool LazyValueInfoCache::solveBlockValueNonLocal(LVILatticeVal &BBLV,
   // then we know that the pointer can't be NULL.
   bool NotNull = false;
   if (Val->getType()->isPointerTy()) {
-    if (isa<AllocaInst>(Val)) {
+    if (isKnownNonNull(Val)) {
       NotNull = true;
     } else {
-      for (BasicBlock::iterator BI = BB->begin(), BE = BB->end();BI != BE;++BI){
-        if (InstructionDereferencesPointer(BI, Val)) {
-          NotNull = true;
-          break;
+      Value *UnderlyingVal = GetUnderlyingObject(Val);
+      // If 'GetUnderlyingObject' didn't converge, skip it. It won't converge
+      // inside InstructionDereferencesPointer either.
+      if (UnderlyingVal == GetUnderlyingObject(UnderlyingVal, NULL, 1)) {
+        for (BasicBlock::iterator BI = BB->begin(), BE = BB->end();
+             BI != BE; ++BI) {
+          if (InstructionDereferencesPointer(BI, UnderlyingVal)) {
+            NotNull = true;
+            break;
+          }
         }
       }
     }
@@ -1009,7 +1013,7 @@ bool LazyValueInfo::runOnFunction(Function &F) {
   if (PImpl)
     getCache(PImpl).clear();
 
-  TD = getAnalysisIfAvailable<TargetData>();
+  TD = getAnalysisIfAvailable<DataLayout>();
   TLI = &getAnalysis<TargetLibraryInfo>();
 
   // Fully lazy.

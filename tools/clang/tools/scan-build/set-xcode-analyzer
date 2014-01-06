@@ -4,9 +4,13 @@
 # want to the use the system version of Python on Mac OS X.
 # This one has the scripting bridge enabled.
 
+import sys
+if sys.version_info < (2, 7):
+    print "set-xcode-analyzer requires Python 2.7 or later"
+    sys.exit(1)
+    
 import os
 import subprocess
-import sys
 import re
 import tempfile
 import shutil
@@ -20,10 +24,19 @@ def FindClangSpecs(path):
       if f.endswith(".xcspec") and f.startswith("Clang LLVM"):
         yield os.path.join(root, f)
 
-def ModifySpec(path, pathToChecker):
+def ModifySpec(path, isBuiltinAnalyzer, pathToChecker):
   t = tempfile.NamedTemporaryFile(delete=False)
   foundAnalyzer = False
   with open(path) as f:
+    if isBuiltinAnalyzer:
+      # First search for CLANG_ANALYZER_EXEC.  Newer
+      # versions of Xcode set EXEC_PATH to be CLANG_ANALYZER_EXEC.
+      with open(path) as f2:
+        for line in f2:
+          if line.find("CLANG_ANALYZER_EXEC") >= 0:
+            pathToChecker = "$(CLANG_ANALYZER_EXEC)"
+            break
+    # Now create a new file.
     for line in f:
       if not foundAnalyzer:
         if line.find("Static Analyzer") >= 0:
@@ -32,6 +45,8 @@ def ModifySpec(path, pathToChecker):
         m = re.search('^(\s*ExecPath\s*=\s*")', line)
         if m:
           line = "".join([m.group(0), pathToChecker, '";\n'])
+          # Do not modify further ExecPath's later in the xcspec.
+          foundAnalyzer = False
       t.write(line)
   t.close()
   print "(+) processing:", path
@@ -61,8 +76,9 @@ def main():
   for x in NSWorkspace.sharedWorkspace().runningApplications():
     if x.localizedName().find("Xcode") >= 0:
       print "(-) You must quit Xcode first before modifying its configuration files."
-      return
+      sys.exit(1)
 
+  isBuiltinAnalyzer = False
   if options.path:
     # Expand tildes.
     path = os.path.expanduser(options.path)
@@ -74,6 +90,7 @@ def main():
   else:
     print "(+) Using the Clang bundled with Xcode"
     path = options.default
+    isBuiltinAnalyzer = True
   
   try:
     xcode_path = subprocess.check_output(["xcode-select", "-print-path"])
@@ -88,7 +105,7 @@ def main():
   foundSpec = False
   for x in FindClangSpecs(xcode_path):
     foundSpec = True
-    ModifySpec(x, path)
+    ModifySpec(x, isBuiltinAnalyzer, path)
     
   if foundSpec == False:
       print "(-) No compiler configuration file was found.  Xcode's analyzer has not been updated."

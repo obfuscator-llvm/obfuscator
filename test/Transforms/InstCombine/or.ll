@@ -178,12 +178,12 @@ define i1 @test18(i32 %A) {
 define i1 @test19(i32 %A) {
         %B = icmp eq i32 %A, 50
         %C = icmp eq i32 %A, 51
-        ;; (A-50) < 2
+        ;; (A&-2) == 50
         %D = or i1 %B, %C
         ret i1 %D
 ; CHECK: @test19
-; CHECK: add i32
-; CHECK: icmp ult 
+; CHECK: and i32
+; CHECK: icmp eq 
 ; CHECK: ret i1
 }
 
@@ -344,10 +344,9 @@ define <4 x i32> @test32(<4 x i1> %and.i1352, <4 x i32> %vecinit6.i176, <4 x i32
   %and.i = and <4 x i32> %vecinit6.i191, %neg.i   ; <<4 x i32>> [#uses=1]
   %or.i = or <4 x i32> %and.i, %and.i129          ; <<4 x i32>> [#uses=1]
   ret <4 x i32> %or.i
-; Don't turn this into a vector select until codegen matures to handle them
-; better.
+; codegen is mature enough to handle vector selects.
 ; CHECK: @test32
-; CHECK: or <4 x i32> %and.i, %and.i129
+; CHECK: select <4 x i1> %and.i1352, <4 x i32> %vecinit6.i176, <4 x i32> %vecinit6.i191
 }
 
 define i1 @test33(i1 %X, i1 %Y) {

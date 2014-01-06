@@ -14,20 +14,20 @@
 
 #define DEBUG_TYPE "memcpyopt"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <list>
@@ -39,7 +39,7 @@ STATISTIC(NumMoveToCpy,   "Number of memmoves converted to memcpy");
 STATISTIC(NumCpyToSet,    "Number of memcpys converted to memset");
 
 static int64_t GetOffsetFromIndex(const GEPOperator *GEP, unsigned Idx,
-                                  bool &VariableIdxFound, const TargetData &TD){
+                                  bool &VariableIdxFound, const DataLayout &TD){
   // Skip over the first indices.
   gep_type_iterator GTI = gep_type_begin(GEP);
   for (unsigned i = 1; i != Idx; ++i, ++GTI)
@@ -72,7 +72,7 @@ static int64_t GetOffsetFromIndex(const GEPOperator *GEP, unsigned Idx,
 /// constant offset, and return that constant offset.  For example, Ptr1 might
 /// be &A[42], and Ptr2 might be &A[40].  In this case offset would be -8.
 static bool IsPointerOffset(Value *Ptr1, Value *Ptr2, int64_t &Offset,
-                            const TargetData &TD) {
+                            const DataLayout &TD) {
   Ptr1 = Ptr1->stripPointerCasts();
   Ptr2 = Ptr2->stripPointerCasts();
   GEPOperator *GEP1 = dyn_cast<GEPOperator>(Ptr1);
@@ -141,12 +141,12 @@ struct MemsetRange {
   /// TheStores - The actual stores that make up this range.
   SmallVector<Instruction*, 16> TheStores;
 
-  bool isProfitableToUseMemset(const TargetData &TD) const;
+  bool isProfitableToUseMemset(const DataLayout &TD) const;
 
 };
 } // end anon namespace
 
-bool MemsetRange::isProfitableToUseMemset(const TargetData &TD) const {
+bool MemsetRange::isProfitableToUseMemset(const DataLayout &TD) const {
   // If we found more than 4 stores to merge or 16 bytes, use memset.
   if (TheStores.size() >= 4 || End-Start >= 16) return true;
 
@@ -192,9 +192,9 @@ class MemsetRanges {
   /// because each element is relatively large and expensive to copy.
   std::list<MemsetRange> Ranges;
   typedef std::list<MemsetRange>::iterator range_iterator;
-  const TargetData &TD;
+  const DataLayout &TD;
 public:
-  MemsetRanges(const TargetData &td) : TD(td) {}
+  MemsetRanges(const DataLayout &td) : TD(td) {}
 
   typedef std::list<MemsetRange>::const_iterator const_iterator;
   const_iterator begin() const { return Ranges.begin(); }
@@ -302,7 +302,7 @@ namespace {
   class MemCpyOpt : public FunctionPass {
     MemoryDependenceAnalysis *MD;
     TargetLibraryInfo *TLI;
-    const TargetData *TD;
+    const DataLayout *TD;
   public:
     static char ID; // Pass identification, replacement for typeid
     MemCpyOpt() : FunctionPass(ID) {
@@ -605,16 +605,6 @@ bool MemCpyOpt::performCallSlotOptzn(Instruction *cpy,
   if (cpyLen < srcSize)
     return false;
 
-  // Check that dest points to memory that is at least as aligned as src.
-  unsigned srcAlign = srcAlloca->getAlignment();
-  if (!srcAlign)
-    srcAlign = TD->getABITypeAlignment(srcAlloca->getAllocatedType());
-  bool isDestSufficientlyAligned = srcAlign <= cpyAlign;
-  // If dest is not aligned enough and we can't increase its alignment then
-  // bail out.
-  if (!isDestSufficientlyAligned && !isa<AllocaInst>(cpyDest))
-    return false;
-
   // Check that accessing the first srcSize bytes of dest will not cause a
   // trap.  Otherwise the transform is invalid since it might cause a trap
   // to occur earlier than it otherwise would.
@@ -643,6 +633,16 @@ bool MemCpyOpt::performCallSlotOptzn(Instruction *cpy,
   } else {
     return false;
   }
+
+  // Check that dest points to memory that is at least as aligned as src.
+  unsigned srcAlign = srcAlloca->getAlignment();
+  if (!srcAlign)
+    srcAlign = TD->getABITypeAlignment(srcAlloca->getAllocatedType());
+  bool isDestSufficientlyAligned = srcAlign <= cpyAlign;
+  // If dest is not aligned enough and we can't increase its alignment then
+  // bail out.
+  if (!isDestSufficientlyAligned && !isa<AllocaInst>(cpyDest))
+    return false;
 
   // Check that src is not accessed except via the call and the memcpy.  This
   // guarantees that it holds only undefined values when passed in (so the final
@@ -1000,7 +1000,7 @@ bool MemCpyOpt::iterateOnFunction(Function &F) {
 bool MemCpyOpt::runOnFunction(Function &F) {
   bool MadeChange = false;
   MD = &getAnalysis<MemoryDependenceAnalysis>();
-  TD = getAnalysisIfAvailable<TargetData>();
+  TD = getAnalysisIfAvailable<DataLayout>();
   TLI = &getAnalysis<TargetLibraryInfo>();
 
   // If we don't have at least memset and memcpy, there is little point of doing

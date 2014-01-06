@@ -14,17 +14,14 @@
 
 #include "llvm/Config/config.h" // plugin-api.h requires HAVE_STDINT_H
 #include "plugin-api.h"
-
 #include "llvm-c/lto.h"
-
 #include "llvm/ADT/OwningPtr.h"
-#include "llvm/Support/system_error.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/Errno.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
-
+#include "llvm/Support/ToolOutputFile.h"
+#include "llvm/Support/system_error.h"
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -378,9 +375,6 @@ static ld_plugin_status all_symbols_read_hook(void) {
     }
   }
 
-  // If we don't preserve any symbols, libLTO will assume that all symbols are
-  // needed. Keep all symbols unless we're producing a final executable.
-  bool anySymbolsPreserved = false;
   for (std::list<claimed_file>::iterator I = Modules.begin(),
          E = Modules.end(); I != E; ++I) {
     if (I->syms.empty())
@@ -389,7 +383,6 @@ static ld_plugin_status all_symbols_read_hook(void) {
     for (unsigned i = 0, e = I->syms.size(); i != e; i++) {
       if (I->syms[i].resolution == LDPR_PREVAILING_DEF) {
         lto_codegen_add_must_preserve_symbol(code_gen, I->syms[i].name);
-        anySymbolsPreserved = true;
 
         if (options::generate_api_file)
           api_file << I->syms[i].name << "\n";
@@ -399,12 +392,6 @@ static ld_plugin_status all_symbols_read_hook(void) {
 
   if (options::generate_api_file)
     api_file.close();
-
-  if (!anySymbolsPreserved) {
-    // All of the IL is unnecessary!
-    lto_codegen_dispose(code_gen);
-    return LDPS_OK;
-  }
 
   lto_codegen_set_pic_model(code_gen, output_type);
   lto_codegen_set_debug_model(code_gen, LTO_DEBUG_MODEL_DWARF);

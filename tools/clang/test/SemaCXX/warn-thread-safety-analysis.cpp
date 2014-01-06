@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -Wthread-safety -std=c++11 %s
+// RUN: %clang_cc1 -fsyntax-only -verify -std=c++11 -Wthread-safety -Wthread-safety-beta -fcxx-exceptions %s
 
 // FIXME: should also run  %clang_cc1 -fsyntax-only -verify -Wthread-safety -std=c++11 -Wc++98-compat %s
 // FIXME: should also run  %clang_cc1 -fsyntax-only -verify -Wthread-safety %s
@@ -1475,8 +1475,8 @@ namespace substitution_test {
   public:
     Mutex mu;
 
-    void lockData()    __attribute__((exclusive_lock_function(mu)))   { }
-    void unlockData()  __attribute__((unlock_function(mu)))           { }
+    void lockData()    __attribute__((exclusive_lock_function(mu)));
+    void unlockData()  __attribute__((unlock_function(mu)));
 
     void doSomething() __attribute__((exclusive_locks_required(mu)))  { }
   };
@@ -1484,8 +1484,8 @@ namespace substitution_test {
 
   class DataLocker {
   public:
-    void lockData  (MyData *d) __attribute__((exclusive_lock_function(d->mu))) { }
-    void unlockData(MyData *d) __attribute__((unlock_function(d->mu)))         { }
+    void lockData  (MyData *d) __attribute__((exclusive_lock_function(d->mu)));
+    void unlockData(MyData *d) __attribute__((unlock_function(d->mu)));
   };
 
 
@@ -1542,22 +1542,6 @@ namespace constructor_destructor_tests {
   }
 }
 
-
-namespace invalid_lock_expression_test {
-
-class LOCKABLE MyLockable {
-public:
-  MyLockable() __attribute__((exclusive_lock_function)) { }
-  ~MyLockable() { }
-};
-
-// create an empty lock expression
-void foo() {
-  MyLockable lock;  // \
-    // expected-warning {{cannot resolve lock expression}}
-}
-
-} // end namespace invalid_lock_expression_test
 
 namespace template_member_test {
 
@@ -2874,7 +2858,7 @@ void Foo::lock1()  EXCLUSIVE_LOCK_FUNCTION(mu1_) {
 }
 
 void Foo::slock1() SHARED_LOCK_FUNCTION(mu1_) {
-  mu1_.Lock();
+  mu1_.ReaderLock();
 }
 
 void Foo::lock3()  EXCLUSIVE_LOCK_FUNCTION(mu1_, mu2_, mu3_) {
@@ -3602,4 +3586,402 @@ void testFooT() {
 }
 
 }  // end namespace TemplateFunctionParamRemapTest
+
+
+namespace SelfConstructorTest {
+
+class SelfLock {
+public:
+  SelfLock()  EXCLUSIVE_LOCK_FUNCTION(mu_);
+  ~SelfLock() UNLOCK_FUNCTION(mu_);
+
+  void foo() EXCLUSIVE_LOCKS_REQUIRED(mu_);
+
+  Mutex mu_;
+};
+
+class LOCKABLE SelfLock2 {
+public:
+  SelfLock2()  EXCLUSIVE_LOCK_FUNCTION();
+  ~SelfLock2() UNLOCK_FUNCTION();
+
+  void foo() EXCLUSIVE_LOCKS_REQUIRED(this);
+};
+
+
+void test() {
+  SelfLock s;
+  s.foo();
+}
+
+void test2() {
+  SelfLock2 s2;
+  s2.foo();
+}
+
+}  // end namespace SelfConstructorTest
+
+
+namespace MultipleAttributeTest {
+
+class Foo {
+  Mutex mu1_;
+  Mutex mu2_;
+  int  a GUARDED_BY(mu1_);
+  int  b GUARDED_BY(mu2_);
+  int  c GUARDED_BY(mu1_)    GUARDED_BY(mu2_);
+  int* d PT_GUARDED_BY(mu1_) PT_GUARDED_BY(mu2_);
+
+  void foo1()          EXCLUSIVE_LOCKS_REQUIRED(mu1_)
+                       EXCLUSIVE_LOCKS_REQUIRED(mu2_);
+  void foo2()          SHARED_LOCKS_REQUIRED(mu1_)
+                       SHARED_LOCKS_REQUIRED(mu2_);
+  void foo3()          LOCKS_EXCLUDED(mu1_)
+                       LOCKS_EXCLUDED(mu2_);
+  void lock()          EXCLUSIVE_LOCK_FUNCTION(mu1_)
+                       EXCLUSIVE_LOCK_FUNCTION(mu2_);
+  void readerlock()    SHARED_LOCK_FUNCTION(mu1_)
+                       SHARED_LOCK_FUNCTION(mu2_);
+  void unlock()        UNLOCK_FUNCTION(mu1_)
+                       UNLOCK_FUNCTION(mu2_);
+  bool trylock()       EXCLUSIVE_TRYLOCK_FUNCTION(true, mu1_)
+                       EXCLUSIVE_TRYLOCK_FUNCTION(true, mu2_);
+  bool readertrylock() SHARED_TRYLOCK_FUNCTION(true, mu1_)
+                       SHARED_TRYLOCK_FUNCTION(true, mu2_);
+
+  void test();
+};
+
+
+void Foo::foo1() {
+  a = 1;
+  b = 2;
+}
+
+void Foo::foo2() {
+  int result = a + b;
+}
+
+void Foo::foo3() { }
+void Foo::lock() { mu1_.Lock();  mu2_.Lock(); }
+void Foo::readerlock() { mu1_.ReaderLock();  mu2_.ReaderLock(); }
+void Foo::unlock() { mu1_.Unlock();  mu2_.Unlock(); }
+bool Foo::trylock()       { return true; }
+bool Foo::readertrylock() { return true; }
+
+
+void Foo::test() {
+  mu1_.Lock();
+  foo1();             // expected-warning {{}}
+  c = 0;              // expected-warning {{}}
+  *d = 0;             // expected-warning {{}}
+  mu1_.Unlock();
+
+  mu1_.ReaderLock();
+  foo2();             // expected-warning {{}}
+  int x = c;          // expected-warning {{}}
+  int y = *d;         // expected-warning {{}}
+  mu1_.Unlock();
+
+  mu2_.Lock();
+  foo3();             // expected-warning {{}}
+  mu2_.Unlock();
+
+  lock();
+  a = 0;
+  b = 0;
+  unlock();
+
+  readerlock();
+  int z = a + b;
+  unlock();
+
+  if (trylock()) {
+    a = 0;
+    b = 0;
+    unlock();
+  }
+
+  if (readertrylock()) {
+    int zz = a + b;
+    unlock();
+  }
+}
+
+
+}  // end namespace MultipleAttributeTest
+
+
+namespace GuardedNonPrimitiveTypeTest {
+
+
+class Data {
+public:
+  Data(int i) : dat(i) { }
+
+  int  getValue() const { return dat; }
+  void setValue(int i)  { dat = i; }
+
+  int  operator[](int i) const { return dat; }
+  int& operator[](int i)       { return dat; }
+
+  void operator()() { }
+
+private:
+  int dat;
+};
+
+
+class DataCell {
+public:
+  DataCell(const Data& d) : dat(d) { }
+
+private:
+  Data dat;
+};
+
+
+void showDataCell(const DataCell& dc);
+
+
+class Foo {
+public:
+  // method call tests
+  void test() {
+    data_.setValue(0);         // FIXME -- should be writing \
+      // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+    int a = data_.getValue();  // \
+      // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+
+    datap1_->setValue(0);      // FIXME -- should be writing \
+      // expected-warning {{reading variable 'datap1_' requires locking 'mu_'}}
+    a = datap1_->getValue();   // \
+      // expected-warning {{reading variable 'datap1_' requires locking 'mu_'}}
+
+    datap2_->setValue(0);      // FIXME -- should be writing \
+      // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+    a = datap2_->getValue();   // \
+      // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+
+    (*datap2_).setValue(0);    // FIXME -- should be writing \
+      // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+    a = (*datap2_).getValue(); // \
+      // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+
+    mu_.Lock();
+    data_.setValue(1);
+    datap1_->setValue(1);
+    datap2_->setValue(1);
+    mu_.Unlock();
+
+    mu_.ReaderLock();
+    a = data_.getValue();
+    datap1_->setValue(0);  // reads datap1_, writes *datap1_
+    a = datap1_->getValue();
+    a = datap2_->getValue();
+    mu_.Unlock();
+  }
+
+  // operator tests
+  void test2() {
+    data_    = Data(1);   // expected-warning {{writing variable 'data_' requires locking 'mu_' exclusively}}
+    *datap1_ = data_;     // expected-warning {{reading variable 'datap1_' requires locking 'mu_'}} \
+                          // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+    *datap2_ = data_;     // expected-warning {{writing the value pointed to by 'datap2_' requires locking 'mu_' exclusively}} \
+                          // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+    data_ = *datap1_;     // expected-warning {{writing variable 'data_' requires locking 'mu_' exclusively}} \
+                          // expected-warning {{reading variable 'datap1_' requires locking 'mu_'}}
+    data_ = *datap2_;     // expected-warning {{writing variable 'data_' requires locking 'mu_' exclusively}} \
+                          // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+
+    data_[0] = 0;         // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+    (*datap2_)[0] = 0;    // expected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+
+    data_();              // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+  }
+
+  // const operator tests
+  void test3() const {
+    Data mydat(data_);      // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+
+    //FIXME
+    //showDataCell(data_);    // xpected-warning {{reading variable 'data_' requires locking 'mu_'}}
+    //showDataCell(*datap2_); // xpected-warning {{reading the value pointed to by 'datap2_' requires locking 'mu_'}}
+
+    int a = data_[0];       // expected-warning {{reading variable 'data_' requires locking 'mu_'}}
+  }
+
+private:
+  Mutex mu_;
+  Data  data_   GUARDED_BY(mu_);
+  Data* datap1_ GUARDED_BY(mu_);
+  Data* datap2_ PT_GUARDED_BY(mu_);
+};
+
+}  // end namespace GuardedNonPrimitiveTypeTest
+
+
+namespace GuardedNonPrimitive_MemberAccess {
+
+class Cell {
+public:
+  Cell(int i);
+
+  void cellMethod();
+
+  int a;
+};
+
+
+class Foo {
+public:
+  int   a;
+  Cell  c  GUARDED_BY(cell_mu_);
+  Cell* cp PT_GUARDED_BY(cell_mu_);
+
+  void myMethod();
+
+  Mutex cell_mu_;
+};
+
+
+class Bar {
+private:
+  Mutex mu_;
+  Foo  foo  GUARDED_BY(mu_);
+  Foo* foop PT_GUARDED_BY(mu_);
+
+  void test() {
+    foo.myMethod();      // expected-warning {{reading variable 'foo' requires locking 'mu_'}}
+
+    int fa = foo.a;      // expected-warning {{reading variable 'foo' requires locking 'mu_'}}
+    foo.a  = fa;         // expected-warning {{writing variable 'foo' requires locking 'mu_' exclusively}}
+
+    fa = foop->a;        // expected-warning {{reading the value pointed to by 'foop' requires locking 'mu_'}}
+    foop->a = fa;        // expected-warning {{writing the value pointed to by 'foop' requires locking 'mu_' exclusively}}
+
+    fa = (*foop).a;      // expected-warning {{reading the value pointed to by 'foop' requires locking 'mu_'}}
+    (*foop).a = fa;      // expected-warning {{writing the value pointed to by 'foop' requires locking 'mu_' exclusively}}
+
+    foo.c  = Cell(0);    // expected-warning {{writing variable 'foo' requires locking 'mu_'}} \
+                         // expected-warning {{writing variable 'c' requires locking 'foo.cell_mu_' exclusively}}
+    foo.c.cellMethod();  // expected-warning {{reading variable 'foo' requires locking 'mu_'}} \
+                         // expected-warning {{reading variable 'c' requires locking 'foo.cell_mu_'}}
+
+    foop->c  = Cell(0);    // expected-warning {{writing the value pointed to by 'foop' requires locking 'mu_'}} \
+                           // expected-warning {{writing variable 'c' requires locking 'foop->cell_mu_' exclusively}}
+    foop->c.cellMethod();  // expected-warning {{reading the value pointed to by 'foop' requires locking 'mu_'}} \
+                           // expected-warning {{reading variable 'c' requires locking 'foop->cell_mu_'}}
+
+    (*foop).c  = Cell(0);    // expected-warning {{writing the value pointed to by 'foop' requires locking 'mu_'}} \
+                             // expected-warning {{writing variable 'c' requires locking 'foop->cell_mu_' exclusively}}
+    (*foop).c.cellMethod();  // expected-warning {{reading the value pointed to by 'foop' requires locking 'mu_'}} \
+                             // expected-warning {{reading variable 'c' requires locking 'foop->cell_mu_'}}
+  };
+};
+
+}  // namespace GuardedNonPrimitive_MemberAccess
+
+
+namespace TestThrowExpr {
+
+class Foo {
+  Mutex mu_;
+
+  bool hasError();
+
+  void test() {
+    mu_.Lock();
+    if (hasError()) {
+      throw "ugly";
+    }
+    mu_.Unlock();
+  }
+};
+
+}  // end namespace TestThrowExpr
+
+
+namespace UnevaluatedContextTest {
+
+// parse attribute expressions in an unevaluated context.
+
+static inline Mutex* getMutex1();
+static inline Mutex* getMutex2();
+
+void bar() EXCLUSIVE_LOCKS_REQUIRED(getMutex1());
+
+void bar2() EXCLUSIVE_LOCKS_REQUIRED(getMutex1(), getMutex2());
+
+}  // end namespace UnevaluatedContextTest
+
+
+namespace LockUnlockFunctionTest {
+
+// Check built-in lock functions
+class LOCKABLE MyLockable  {
+public:
+  void lock()       EXCLUSIVE_LOCK_FUNCTION() { mu_.Lock(); }
+  void readerLock() SHARED_LOCK_FUNCTION()    { mu_.ReaderLock(); }
+  void unlock()     UNLOCK_FUNCTION()         { mu_.Unlock(); }
+
+private:
+  Mutex mu_;
+};
+
+
+class Foo {
+public:
+  // Correct lock/unlock functions
+  void lock() EXCLUSIVE_LOCK_FUNCTION(mu_) {
+    mu_.Lock();
+  }
+
+  void readerLock() SHARED_LOCK_FUNCTION(mu_) {
+    mu_.ReaderLock();
+  }
+
+  void unlock() UNLOCK_FUNCTION(mu_) {
+    mu_.Unlock();
+  }
+
+  // Check failure to lock.
+  void lockBad() EXCLUSIVE_LOCK_FUNCTION(mu_) {    // expected-note {{mutex acquired here}}
+    mu2_.Lock();
+    mu2_.Unlock();
+  }  // expected-warning {{expecting mutex 'mu_' to be locked at the end of function}}
+
+  void readerLockBad() SHARED_LOCK_FUNCTION(mu_) {  // expected-note {{mutex acquired here}}
+    mu2_.Lock();
+    mu2_.Unlock();
+  }  // expected-warning {{expecting mutex 'mu_' to be locked at the end of function}}
+
+  void unlockBad() UNLOCK_FUNCTION(mu_) {  // expected-note {{mutex acquired here}}
+    mu2_.Lock();
+    mu2_.Unlock();
+  }  // expected-warning {{mutex 'mu_' is still locked at the end of function}}
+
+  // Check locking the wrong thing.
+  void lockBad2() EXCLUSIVE_LOCK_FUNCTION(mu_) {   // expected-note {{mutex acquired here}}
+    mu2_.Lock();            // expected-note {{mutex acquired here}}
+  } // expected-warning {{expecting mutex 'mu_' to be locked at the end of function}} \
+    // expected-warning {{mutex 'mu2_' is still locked at the end of function}}
+
+
+  void readerLockBad2() SHARED_LOCK_FUNCTION(mu_) {   // expected-note {{mutex acquired here}}
+    mu2_.ReaderLock();      // expected-note {{mutex acquired here}}
+  } // expected-warning {{expecting mutex 'mu_' to be locked at the end of function}} \
+    // expected-warning {{mutex 'mu2_' is still locked at the end of function}}
+
+
+  void unlockBad2() UNLOCK_FUNCTION(mu_) {  // expected-note {{mutex acquired here}}
+    mu2_.Unlock();  // expected-warning {{unlocking 'mu2_' that was not locked}}
+  }  // expected-warning {{mutex 'mu_' is still locked at the end of function}}
+
+private:
+  Mutex mu_;
+  Mutex mu2_;
+};
+
+}  // end namespace LockUnlockFunctionTest
 

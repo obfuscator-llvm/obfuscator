@@ -6,6 +6,7 @@ set(files
   bmiintrin.h
   bmi2intrin.h
   emmintrin.h
+  f16cintrin.h
   float.h
   fma4intrin.h
   fmaintrin.h
@@ -19,16 +20,22 @@ set(files
   nmmintrin.h
   pmmintrin.h
   popcntintrin.h
+  prfchwintrin.h
+  rdseedintrin.h
+  rtmintrin.h
   smmintrin.h
   stdalign.h
   stdarg.h
   stdbool.h
   stddef.h
   stdint.h
+  stdnoreturn.h
   tgmath.h
   tmmintrin.h
   varargs.h
   wmmintrin.h
+  __wmmintrin_aes.h
+  __wmmintrin_pclmul.h
   x86intrin.h
   xmmintrin.h
   xopintrin.h
@@ -87,6 +94,14 @@ endif ()
 
 add_custom_target(clang-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-headers PROPERTIES FOLDER "Misc")
+
+if (other_output_dir)
+	if(UNIX)
+		add_custom_command(TARGET clang-headers POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${LLVM_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}"
+	    	COMMAND ${CMAKE_COMMAND} -E create_symlink "${LLVM_BINARY_DIR}/bin/lib/clang" "${LLVM_BINARY_DIR}/lib/${CMAKE_CFG_INTDIR}/clang")
+	endif()
+endif ()
 
 install(FILES ${files} ${output_dir}/arm_neon.h
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ

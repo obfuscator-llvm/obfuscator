@@ -14,28 +14,30 @@
 #ifndef LLVM_CLANG_FRONTEND_ASTUNIT_H
 #define LLVM_CLANG_FRONTEND_ASTUNIT_H
 
-#include "clang/Serialization/ASTBitCodes.h"
-#include "clang/Sema/Sema.h"
-#include "clang/Sema/CodeCompleteConsumer.h"
-#include "clang/Lex/ModuleLoader.h"
-#include "clang/Lex/PreprocessingRecord.h"
+#include "clang-c/Index.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
-#include "clang-c/Index.h"
+#include "clang/Basic/LangOptions.h"
+#include "clang/Basic/SourceManager.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Lex/HeaderSearchOptions.h"
+#include "clang/Lex/ModuleLoader.h"
+#include "clang/Lex/PreprocessingRecord.h"
+#include "clang/Sema/CodeCompleteConsumer.h"
+#include "clang/Sema/Sema.h"
+#include "clang/Serialization/ASTBitCodes.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Path.h"
+#include <cassert>
 #include <map>
 #include <string>
-#include <vector>
-#include <cassert>
-#include <utility>
 #include <sys/types.h>
+#include <utility>
+#include <vector>
 
 namespace llvm {
   class MemoryBuffer;
@@ -56,20 +58,26 @@ class Preprocessor;
 class SourceManager;
 class TargetInfo;
 class ASTFrontendAction;
+class ASTDeserializationListener;
 
 /// \brief Utility class for loading a ASTContext from an AST file.
 ///
 class ASTUnit : public ModuleLoader {
 private:
-  IntrusiveRefCntPtr<LangOptions>       LangOpts;
-  IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics;
-  IntrusiveRefCntPtr<FileManager>       FileMgr;
-  IntrusiveRefCntPtr<SourceManager>     SourceMgr;
-  OwningPtr<HeaderSearch>               HeaderInfo;
-  IntrusiveRefCntPtr<TargetInfo>        Target;
-  IntrusiveRefCntPtr<Preprocessor>      PP;
-  IntrusiveRefCntPtr<ASTContext>        Ctx;
+  IntrusiveRefCntPtr<LangOptions>         LangOpts;
+  IntrusiveRefCntPtr<DiagnosticsEngine>   Diagnostics;
+  IntrusiveRefCntPtr<FileManager>         FileMgr;
+  IntrusiveRefCntPtr<SourceManager>       SourceMgr;
+  OwningPtr<HeaderSearch>                 HeaderInfo;
+  IntrusiveRefCntPtr<TargetInfo>          Target;
+  IntrusiveRefCntPtr<Preprocessor>        PP;
+  IntrusiveRefCntPtr<ASTContext>          Ctx;
+  IntrusiveRefCntPtr<TargetOptions>       TargetOpts;
+  IntrusiveRefCntPtr<HeaderSearchOptions> HSOpts;
   ASTReader *Reader;
+
+  struct ASTWriterData;
+  OwningPtr<ASTWriterData> WriterData;
 
   FileSystemOptions FileSystemOpts;
 
@@ -84,13 +92,6 @@ private:
   /// Optional owned invocation, just used to make the invocation used in
   /// LoadFromCommandLine available.
   IntrusiveRefCntPtr<CompilerInvocation> Invocation;
-  
-  /// \brief The set of target features.
-  ///
-  /// FIXME: each time we reparse, we need to restore the set of target
-  /// features from this vector, because TargetInfo::CreateTargetInfo()
-  /// mangles the target options in place. Yuck!
-  std::vector<std::string> TargetFeatures;
   
   // OnlyLocalDecls - when true, walking this AST should only visit declarations
   // that come from the AST itself, not from included precompiled headers.
@@ -466,7 +467,11 @@ public:
 
   const FileSystemOptions &getFileSystemOpts() const { return FileSystemOpts; }
 
-  const std::string &getOriginalSourceFileName();
+  StringRef getOriginalSourceFileName() {
+    return OriginalSourceFile;
+  }
+
+  ASTDeserializationListener *getDeserializationListener();
 
   /// \brief Add a temporary file that the ASTUnit depends on.
   ///
@@ -479,6 +484,9 @@ public:
   void setOwnsRemappedFileBuffers(bool val) { OwnsRemappedFileBuffers = val; }
 
   StringRef getMainFileName() const;
+
+  /// \brief If this ASTUnit came from an AST file, returns the filename for it.
+  StringRef getASTFileName() const;
 
   typedef std::vector<Decl *>::iterator top_level_iterator;
 
@@ -626,6 +634,10 @@ public:
   /// \brief Get the PCH file if one was included.
   const FileEntry *getPCHFile();
 
+  /// \brief Returns true if the ASTUnit was constructed from a serialized
+  /// module file.
+  bool isModuleFile();
+
   llvm::MemoryBuffer *getBufferForFile(StringRef Filename,
                                        std::string *ErrorStr = 0);
 
@@ -769,6 +781,7 @@ public:
                                       bool AllowPCHWithCompilerErrors = false,
                                       bool SkipFunctionBodies = false,
                                       bool UserFilesAreVolatile = false,
+                                      bool ForSerialization = false,
                                       OwningPtr<ASTUnit> *ErrAST = 0);
   
   /// \brief Reparse the source files using the same command-line options that
@@ -820,12 +833,19 @@ public:
   /// \returns True if an error occurred, false otherwise.
   bool serialize(raw_ostream &OS);
   
-  virtual Module *loadModule(SourceLocation ImportLoc, ModuleIdPath Path,
-                             Module::NameVisibilityKind Visibility,
-                             bool IsInclusionDirective) {
+  virtual ModuleLoadResult loadModule(SourceLocation ImportLoc,
+                                      ModuleIdPath Path,
+                                      Module::NameVisibilityKind Visibility,
+                                      bool IsInclusionDirective) {
     // ASTUnit doesn't know how to load modules (not that this matters).
-    return 0;
+    return ModuleLoadResult();
   }
+
+  virtual void makeModuleVisible(Module *Mod,
+                                 Module::NameVisibilityKind Visibility,
+                                 SourceLocation ImportLoc,
+                                 bool Complain) { }
+
 };
 
 } // namespace clang

@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
+// expected-no-diagnostics
 @interface NSObject @end
 
 @protocol ProtocolA
@@ -30,4 +31,27 @@
   return [super instanceMethod];
 }
 
+@end
+
+
+@protocol ProtC
+-document;
+@end
+
+@interface I1 : NSObject
+@end
+
+@interface I1(cat)
+-document;
+@end
+
+@interface I2 : NSObject
+-document;
+@end
+
+@interface I2() <ProtC>
+@end
+
+@implementation I2
+- document { return 0; }
 @end

@@ -17,12 +17,11 @@
 
 // LLVM include
 #include "llvm/Pass.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/PrngAESCtr.h"
 

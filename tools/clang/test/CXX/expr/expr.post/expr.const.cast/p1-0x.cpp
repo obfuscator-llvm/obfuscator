@@ -15,3 +15,19 @@ void test_classification(const int *ptr) {
   int *ptr1 = const_cast<int *&&>(xvalue<const int*>());
   int *ptr2 = const_cast<int *&&>(prvalue<const int*>());
 }
+
+struct A {
+  volatile unsigned ubf : 4;
+  volatile unsigned uv;
+  volatile int sv;
+  void foo();
+  bool pred();
+};
+
+void test(A &a) {
+  unsigned &t0 = const_cast<unsigned&>(a.ubf); // expected-error {{const_cast from bit-field lvalue to reference type}}
+  unsigned &t1 = const_cast<unsigned&>(a.foo(), a.ubf); // expected-error {{const_cast from bit-field lvalue to reference type}}
+  unsigned &t2 = const_cast<unsigned&>(a.pred() ? a.ubf : a.ubf); // expected-error {{const_cast from bit-field lvalue to reference type}}
+  unsigned &t3 = const_cast<unsigned&>(a.pred() ? a.ubf : a.uv); // expected-error {{const_cast from bit-field lvalue to reference type}}
+  unsigned &t4 = const_cast<unsigned&>(a.pred() ? a.ubf : a.sv); // expected-error {{const_cast from rvalue to reference type}}
+}

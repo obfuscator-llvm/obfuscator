@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SYSTEM_MEMORY_H
-#define LLVM_SYSTEM_MEMORY_H
+#ifndef LLVM_SUPPORT_MEMORY_H
+#define LLVM_SUPPORT_MEMORY_H
 
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/system_error.h"
@@ -98,8 +98,8 @@ namespace sys {
     /// \p ErrMsg [out] returns a string describing any error that occured.
     ///
     /// If \p Flags is MF_WRITE, the actual behavior varies
-    /// with the operating system (i.e. MF_READWRITE on Windows) and the
-    /// target architecture (i.e. MF_WRITE -> MF_READWRITE on i386).
+    /// with the operating system (i.e. MF_READ | MF_WRITE on Windows) and the
+    /// target architecture (i.e. MF_WRITE -> MF_READ | MF_WRITE on i386).
     ///
     /// \r error_success if the function was successful, or an error_code
     /// describing the failure if an error occurred.

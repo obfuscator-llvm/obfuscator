@@ -1,4 +1,4 @@
-//===- CIndexHigh.cpp - Higher level API functions ------------------------===//
+//===- IndexingContext.cpp - Higher level API functions -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,12 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "IndexingContext.h"
-#include "CXTranslationUnit.h"
 #include "CIndexDiagnostic.h"
-
-#include "clang/Frontend/ASTUnit.h"
+#include "CXTranslationUnit.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/Frontend/ASTUnit.h"
 
 using namespace clang;
 using namespace cxindex;
@@ -70,7 +69,7 @@ AttrListInfo::AttrListInfo(const Decl *D, IndexingContext &IdxCtx)
   for (AttrVec::const_iterator AttrI = D->attr_begin(), AttrE = D->attr_end();
          AttrI != AttrE; ++AttrI) {
     const Attr *A = *AttrI;
-    CXCursor C = MakeCXCursor(A, const_cast<Decl *>(D), IdxCtx.CXTU);
+    CXCursor C = MakeCXCursor(A, D, IdxCtx.CXTU);
     CXIdxLoc Loc =  IdxCtx.getIndexLoc(A->getLocation());
     switch (C.kind) {
     default:
@@ -166,16 +165,16 @@ SourceLocation IndexingContext::CXXBasesListInfo::getBaseLoc(
   if (TL.isNull())
     return Loc;
 
-  if (const QualifiedTypeLoc *QL = dyn_cast<QualifiedTypeLoc>(&TL))
-    TL = QL->getUnqualifiedLoc();
+  if (QualifiedTypeLoc QL = TL.getAs<QualifiedTypeLoc>())
+    TL = QL.getUnqualifiedLoc();
 
-  if (const ElaboratedTypeLoc *EL = dyn_cast<ElaboratedTypeLoc>(&TL))
-    return EL->getNamedTypeLoc().getBeginLoc();
-  if (const DependentNameTypeLoc *DL = dyn_cast<DependentNameTypeLoc>(&TL))
-    return DL->getNameLoc();
-  if (const DependentTemplateSpecializationTypeLoc *
-        DTL = dyn_cast<DependentTemplateSpecializationTypeLoc>(&TL))
-    return DTL->getTemplateNameLoc();
+  if (ElaboratedTypeLoc EL = TL.getAs<ElaboratedTypeLoc>())
+    return EL.getNamedTypeLoc().getBeginLoc();
+  if (DependentNameTypeLoc DL = TL.getAs<DependentNameTypeLoc>())
+    return DL.getNameLoc();
+  if (DependentTemplateSpecializationTypeLoc DTL =
+          TL.getAs<DependentTemplateSpecializationTypeLoc>())
+    return DTL.getTemplateNameLoc();
 
   return Loc;
 }
@@ -197,11 +196,11 @@ const char *ScratchAlloc::copyCStr(StringRef Str) {
 
 void IndexingContext::setASTContext(ASTContext &ctx) {
   Ctx = &ctx;
-  static_cast<ASTUnit*>(CXTU->TUData)->setASTContext(&ctx);
+  cxtu::getASTUnit(CXTU)->setASTContext(&ctx);
 }
 
 void IndexingContext::setPreprocessor(Preprocessor &PP) {
-  static_cast<ASTUnit*>(CXTU->TUData)->setPreprocessor(&PP);
+  cxtu::getASTUnit(CXTU)->setPreprocessor(&PP);
 }
 
 bool IndexingContext::isFunctionLocalDecl(const Decl *D) {
@@ -232,7 +231,9 @@ bool IndexingContext::shouldAbort() {
 
 void IndexingContext::enteredMainFile(const FileEntry *File) {
   if (File && CB.enteredMainFile) {
-    CXIdxClientFile idxFile = CB.enteredMainFile(ClientData, (CXFile)File, 0);
+    CXIdxClientFile idxFile =
+      CB.enteredMainFile(ClientData,
+                         static_cast<CXFile>(const_cast<FileEntry *>(File)), 0);
     FileMap[File] = idxFile;
   }
 }
@@ -240,15 +241,17 @@ void IndexingContext::enteredMainFile(const FileEntry *File) {
 void IndexingContext::ppIncludedFile(SourceLocation hashLoc,
                                      StringRef filename,
                                      const FileEntry *File,
-                                     bool isImport, bool isAngled) {
+                                     bool isImport, bool isAngled,
+                                     bool isModuleImport) {
   if (!CB.ppIncludedFile)
     return;
 
   ScratchAlloc SA(*this);
   CXIdxIncludedFileInfo Info = { getIndexLoc(hashLoc),
                                  SA.toCStr(filename),
-                                 (CXFile)File,
-                                 isImport, isAngled };
+                                 static_cast<CXFile>(
+                                   const_cast<FileEntry *>(File)),
+                                 isImport, isAngled, isModuleImport };
   CXIdxClientFile idxFile = CB.ppIncludedFile(ClientData, &Info);
   FileMap[File] = idxFile;
 }
@@ -263,11 +266,11 @@ void IndexingContext::importedModule(const ImportDecl *ImportD) {
   std::string ModuleName = Mod->getFullModuleName();
 
   CXIdxImportedASTFileInfo Info = {
-                                    (CXFile)Mod->getASTFile(),
+                                    static_cast<CXFile>(
+                                    const_cast<FileEntry *>(Mod->getASTFile())),
+                                    Mod,
                                     getIndexLoc(ImportD->getLocation()),
-                                    /*isModule=*/true,
-                                    ImportD->isImplicit(),
-                                    ModuleName.c_str(),
+                                    ImportD->isImplicit()
                                   };
   CXIdxClientASTFile astFile = CB.importedASTFile(ClientData, &Info);
   (void)astFile;
@@ -278,11 +281,11 @@ void IndexingContext::importedPCH(const FileEntry *File) {
     return;
 
   CXIdxImportedASTFileInfo Info = {
-                                    (CXFile)File,
+                                    static_cast<CXFile>(
+                                      const_cast<FileEntry *>(File)),
+                                    /*module=*/NULL,
                                     getIndexLoc(SourceLocation()),
-                                    /*isModule=*/false,
-                                    /*isImplicit=*/false,
-                                    /*moduleName=*/NULL
+                                    /*isImplicit=*/false
                                   };
   CXIdxClientASTFile astFile = CB.importedASTFile(ClientData, &Info);
   (void)astFile;
@@ -366,8 +369,18 @@ bool IndexingContext::handleObjCContainer(const ObjCContainerDecl *D,
 }
 
 bool IndexingContext::handleFunction(const FunctionDecl *D) {
-  DeclInfo DInfo(!D->isFirstDeclaration(), D->isThisDeclarationADefinition(),
-                 D->isThisDeclarationADefinition());
+  bool isDef = D->isThisDeclarationADefinition();
+  bool isContainer = isDef;
+  bool isSkipped = false;
+  if (D->hasSkippedBody()) {
+    isSkipped = true;
+    isDef = true;
+    isContainer = false;
+  }
+
+  DeclInfo DInfo(!D->isFirstDeclaration(), isDef, isContainer);
+  if (isSkipped)
+    DInfo.flags |= CXIdxDeclFlag_Skipped;
   return handleDecl(D, D->getLocation(), getCursor(D), DInfo);
 }
 
@@ -378,6 +391,12 @@ bool IndexingContext::handleVar(const VarDecl *D) {
 }
 
 bool IndexingContext::handleField(const FieldDecl *D) {
+  DeclInfo DInfo(/*isRedeclaration=*/false, /*isDefinition=*/true,
+                 /*isContainer=*/false);
+  return handleDecl(D, D->getLocation(), getCursor(D), DInfo);
+}
+
+bool IndexingContext::handleMSProperty(const MSPropertyDecl *D) {
   DeclInfo DInfo(/*isRedeclaration=*/false, /*isDefinition=*/true,
                  /*isContainer=*/false);
   return handleDecl(D, D->getLocation(), getCursor(D), DInfo);
@@ -550,8 +569,18 @@ bool IndexingContext::handleObjCCategoryImpl(const ObjCCategoryImplDecl *D) {
 }
 
 bool IndexingContext::handleObjCMethod(const ObjCMethodDecl *D) {
-  DeclInfo DInfo(!D->isCanonicalDecl(), D->isThisDeclarationADefinition(),
-                 D->isThisDeclarationADefinition());
+  bool isDef = D->isThisDeclarationADefinition();
+  bool isContainer = isDef;
+  bool isSkipped = false;
+  if (D->hasSkippedBody()) {
+    isSkipped = true;
+    isDef = true;
+    isContainer = false;
+  }
+
+  DeclInfo DInfo(!D->isCanonicalDecl(), isDef, isContainer);
+  if (isSkipped)
+    DInfo.flags |= CXIdxDeclFlag_Skipped;
   return handleDecl(D, D->getLocation(), getCursor(D), DInfo);
 }
 
@@ -626,8 +655,7 @@ bool IndexingContext::handleReference(const NamedDecl *D, SourceLocation Loc,
   if (!D)
     return false;
 
-  CXCursor Cursor = E ? MakeCXCursor(const_cast<Expr*>(E),
-                                     const_cast<Decl*>(cast<Decl>(DC)), CXTU)
+  CXCursor Cursor = E ? MakeCXCursor(E, cast<Decl>(DC), CXTU)
                       : getRefCursor(D, Loc);
   return handleReference(D, Loc, Cursor, Parent, DC, E, Kind);
 }
@@ -809,7 +837,7 @@ IndexingContext::getEntityContainer(const Decl *D) const {
 
   if (const ClassTemplateDecl *ClassTempl = dyn_cast<ClassTemplateDecl>(D)) {
     DC = ClassTempl->getTemplatedDecl();
-  } if (const FunctionTemplateDecl *
+  } else if (const FunctionTemplateDecl *
           FuncTempl = dyn_cast<FunctionTemplateDecl>(D)) {
     DC = FuncTempl->getTemplatedDecl();
   }
@@ -845,7 +873,7 @@ CXIdxLoc IndexingContext::getIndexLoc(SourceLocation Loc) const {
   if (Loc.isInvalid())
     return idxLoc;
 
-  idxLoc.ptr_data[0] = (void*)this;
+  idxLoc.ptr_data[0] = const_cast<IndexingContext *>(this);
   idxLoc.int_data = Loc.getRawEncoding();
   return idxLoc;
 }
@@ -871,7 +899,7 @@ void IndexingContext::translateLoc(SourceLocation Loc,
   if (indexFile)
     *indexFile = getIndexFile(FE);
   if (file)
-    *file = (void *)FE;
+    *file = const_cast<FileEntry *>(FE);
   if (line)
     *line = SM.getLineNumber(FID, FileOffset);
   if (column)

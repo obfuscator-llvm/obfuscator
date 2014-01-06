@@ -1,9 +1,9 @@
-; RUN: llc < %s -mcpu=generic -march=x86 -x86-asm-syntax=intel | \
-; RUN:   grep "add	ESP, 8"
+; RUN: llc < %s -mcpu=generic -march=x86 -x86-asm-syntax=intel | FileCheck %s
+; CHECK: add ESP, 8
 
 target triple = "i686-pc-linux-gnu"
 
-declare x86_fastcallcc void @func(i32*, i64)
+declare x86_fastcallcc void @func(i32*, i64 inreg)
 
 define x86_fastcallcc void @caller(i32, i64) {
         %X = alloca i32         ; <i32*> [#uses=1]

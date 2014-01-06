@@ -16,6 +16,7 @@
 #ifndef LLVM_ANALYSIS_PROFILEDATALOADER_H
 #define LLVM_ANALYSIS_PROFILEDATALOADER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Debug.h"
@@ -114,9 +115,6 @@ public:
   /// A special value used to represent the weight of an edge which has not
   /// been counted yet.
   static const unsigned Uncounted;
-
-  /// The maximum value that can be stored in a profiling counter.
-  static const unsigned MaxCount;
 
   /// getNumExecutions - Return the number of times the target program was run
   /// to generate this profiling data.

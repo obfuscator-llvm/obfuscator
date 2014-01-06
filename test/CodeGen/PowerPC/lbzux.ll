@@ -1,10 +1,10 @@
 target datalayout = "E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v128:128:128-n32:64"
 target triple = "powerpc64-unknown-linux-gnu"
-; RUN: llc < %s | FileCheck %s
+; RUN: llc -disable-ppc-unaligned < %s | FileCheck %s
 
 define fastcc void @allocateSpace(i1 %cond1, i1 %cond2) nounwind {
 entry:
-  %0 = load i8** undef, align 8, !tbaa !0
+  %0 = load i8** undef, align 8
   br i1 undef, label %return, label %lor.lhs.false
 
 lor.lhs.false:                                    ; preds = %entry
@@ -43,7 +43,3 @@ return:                                           ; preds = %if.then45, %lor.lhs
 ; CHECK: @allocateSpace
 ; CHECK: lbzux
 }
-
-!0 = metadata !{metadata !"any pointer", metadata !1}
-!1 = metadata !{metadata !"omnipotent char", metadata !2}
-!2 = metadata !{metadata !"Simple C/C++ TBAA"}

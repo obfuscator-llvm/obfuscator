@@ -10,13 +10,13 @@ add_llvm_library(LLVMAnalysis
   BranchProbabilityInfo.cpp
   CFGPrinter.cpp
   CaptureTracking.cpp
+  CostModel.cpp
   CodeMetrics.cpp
   ConstantFolding.cpp
-  DbgInfoPrinter.cpp
+  DependenceAnalysis.cpp
   DomPrinter.cpp
   DominanceFrontier.cpp
   IVUsers.cpp
-  InlineCost.cpp
   InstCount.cpp
   InstructionSimplify.cpp
   Interval.cpp
@@ -26,7 +26,6 @@ add_llvm_library(LLVMAnalysis
   LibCallSemantics.cpp
   Lint.cpp
   Loads.cpp
-  LoopDependenceAnalysis.cpp
   LoopInfo.cpp
   LoopPass.cpp
   MemDepPrinter.cpp
@@ -46,6 +45,7 @@ add_llvm_library(LLVMAnalysis
   ProfileVerifierPass.cpp
   ProfileDataLoader.cpp
   ProfileDataLoaderPass.cpp
+  PtrUseVisitor.cpp
   RegionInfo.cpp
   RegionPass.cpp
   RegionPrinter.cpp
@@ -54,6 +54,7 @@ add_llvm_library(LLVMAnalysis
   ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
   SparsePropagation.cpp
+  TargetTransformInfo.cpp
   Trace.cpp
   TypeBasedAliasAnalysis.cpp
   ValueTracking.cpp

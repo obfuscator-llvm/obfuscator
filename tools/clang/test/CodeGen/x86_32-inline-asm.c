@@ -7,7 +7,7 @@ typedef u_int32_t uint32_t;
 typedef unsigned long long u_int64_t;
 typedef u_int64_t uint64_t;
 
-int func() {
+int func1() {
   // Error out if size is > 32-bits.
   uint32_t msr = 0x8b;
   uint64_t val = 0;

@@ -54,31 +54,133 @@
 // ARMV5E: "-cc1"
 // ARMV5E: "-target-cpu" "arm1022e"
 
-// RUN: %clang -ccc-clang-archs powerpc64 -target powerpc64-unknown-linux-gnu \
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
 // RUN: -### -S %s -mcpu=G5 2>&1 | FileCheck -check-prefix=PPCG5 %s
 // PPCG5: clang
 // PPCG5: "-cc1"
 // PPCG5: "-target-cpu" "g5"
 
-// RUN: %clang -ccc-clang-archs powerpc64 -target powerpc64-unknown-linux-gnu \
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
 // RUN: -### -S %s -mcpu=power7 2>&1 | FileCheck -check-prefix=PPCPWR7 %s
 // PPCPWR7: clang
 // PPCPWR7: "-cc1"
 // PPCPWR7: "-target-cpu" "pwr7"
 
-// RUN: %clang -ccc-clang-archs powerpc64 -target powerpc64-unknown-linux-gnu \
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=a2q 2>&1 | FileCheck -check-prefix=PPCA2Q %s
+// PPCA2Q: clang
+// PPCA2Q: "-cc1"
+// PPCA2Q: "-target-cpu" "a2q"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=630 2>&1 | FileCheck -check-prefix=PPC630 %s
+// PPC630: clang
+// PPC630: "-cc1"
+// PPC630: "-target-cpu" "pwr3"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power3 2>&1 | FileCheck -check-prefix=PPCPOWER3 %s
+// PPCPOWER3: clang
+// PPCPOWER3: "-cc1"
+// PPCPOWER3: "-target-cpu" "pwr3"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr3 2>&1 | FileCheck -check-prefix=PPCPWR3 %s
+// PPCPWR3: clang
+// PPCPWR3: "-cc1"
+// PPCPWR3: "-target-cpu" "pwr3"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power4 2>&1 | FileCheck -check-prefix=PPCPOWER4 %s
+// PPCPOWER4: clang
+// PPCPOWER4: "-cc1"
+// PPCPOWER4: "-target-cpu" "pwr4"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr4 2>&1 | FileCheck -check-prefix=PPCPWR4 %s
+// PPCPWR4: clang
+// PPCPWR4: "-cc1"
+// PPCPWR4: "-target-cpu" "pwr4"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power5 2>&1 | FileCheck -check-prefix=PPCPOWER5 %s
+// PPCPOWER5: clang
+// PPCPOWER5: "-cc1"
+// PPCPOWER5: "-target-cpu" "pwr5"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr5 2>&1 | FileCheck -check-prefix=PPCPWR5 %s
+// PPCPWR5: clang
+// PPCPWR5: "-cc1"
+// PPCPWR5: "-target-cpu" "pwr5"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power5x 2>&1 | FileCheck -check-prefix=PPCPOWER5X %s
+// PPCPOWER5X: clang
+// PPCPOWER5X: "-cc1"
+// PPCPOWER5X: "-target-cpu" "pwr5x"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr5x 2>&1 | FileCheck -check-prefix=PPCPWR5X %s
+// PPCPWR5X: clang
+// PPCPWR5X: "-cc1"
+// PPCPWR5X: "-target-cpu" "pwr5x"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power6 2>&1 | FileCheck -check-prefix=PPCPOWER6 %s
+// PPCPOWER6: clang
+// PPCPOWER6: "-cc1"
+// PPCPOWER6: "-target-cpu" "pwr6"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr6 2>&1 | FileCheck -check-prefix=PPCPWR6 %s
+// PPCPWR6: clang
+// PPCPWR6: "-cc1"
+// PPCPWR6: "-target-cpu" "pwr6"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power6x 2>&1 | FileCheck -check-prefix=PPCPOWER6X %s
+// PPCPOWER6X: clang
+// PPCPOWER6X: "-cc1"
+// PPCPOWER6X: "-target-cpu" "pwr6x"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=pwr6x 2>&1 | FileCheck -check-prefix=PPCPWR6X %s
+// PPCPWR6X: clang
+// PPCPWR6X: "-cc1"
+// PPCPWR6X: "-target-cpu" "pwr6x"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=power7 2>&1 | FileCheck -check-prefix=PPCPOWER7 %s
+// PPCPOWER7: clang
+// PPCPOWER7: "-cc1"
+// PPCPOWER7: "-target-cpu" "pwr7"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=powerpc 2>&1 | FileCheck -check-prefix=PPCPOWERPC %s
+// PPCPOWERPC: clang
+// PPCPOWERPC: "-cc1"
+// PPCPOWERPC: "-target-cpu" "ppc"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
+// RUN: -### -S %s -mcpu=powerpc64 2>&1 | FileCheck -check-prefix=PPCPOWERPC64 %s
+// PPCPOWERPC64: clang
+// PPCPOWERPC64: "-cc1"
+// PPCPOWERPC64: "-target-cpu" "ppc64"
+
+// RUN: %clang -target powerpc64-unknown-linux-gnu \
 // RUN: -### -S %s 2>&1 | FileCheck -check-prefix=PPC64NS %s
 // PPC64NS: clang
 // PPC64NS: "-cc1"
 // PPC64NS: "-target-cpu" "ppc64"
 
-// RUN: %clang -ccc-clang-archs powerpc -target powerpc-fsl-linux -### -S %s \
+// RUN: %clang -target powerpc-fsl-linux -### -S %s \
 // RUN: -mcpu=e500mc 2>&1 | FileCheck -check-prefix=PPCE500MC %s
 // PPCE500MC: clang
 // PPCE500MC: "-cc1"
 // PPCE500MC: "-target-cpu" "e500mc"
 
-// RUN: %clang -ccc-clang-archs powerpc64 -target powerpc64-fsl-linux -### -S \
+// RUN: %clang -target powerpc64-fsl-linux -### -S \
 // RUN: %s -mcpu=e5500 2>&1 | FileCheck -check-prefix=PPCE5500 %s
 // PPCE5500: clang
 // PPCE5500: "-cc1"
@@ -91,3 +193,17 @@
 // AMD64: "-triple"
 // AMD64: "amd64-unknown-openbsd5.2"
 // AMD64: "-munwind-tables"
+
+// RUN: %clang -target amd64--mingw32 -### -S %s 2>&1 | \
+// RUN: FileCheck -check-prefix=AMD64-MINGW %s
+// AMD64-MINGW: clang
+// AMD64-MINGW: "-cc1"
+// AMD64-MINGW: "-triple"
+// AMD64-MINGW: "amd64--mingw32"
+// AMD64-MINGW: "-munwind-tables"
+
+// RUN: %clang -target i386-linux-android -### -S %s 2>&1 \
+// RUN:        --sysroot=%S/Inputs/basic_android_tree/sysroot \
+// RUN:   | FileCheck --check-prefix=ANDROID-X86 %s
+// ANDROID-X86: clang
+// ANDROID-X86: "-target-cpu" "core2"

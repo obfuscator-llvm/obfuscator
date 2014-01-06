@@ -13,28 +13,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/GlobalAlias.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Instructions.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/Operator.h"
-#include "llvm/Pass.h"
-#include "llvm/Analysis/CaptureTracking.h"
-#include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
+#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalAlias.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
+#include "llvm/Target/TargetLibraryInfo.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -58,12 +58,12 @@ static bool isNonEscapingLocalObject(const Value *V) {
   // then it has not escaped before entering the function.  Check if it escapes
   // inside the function.
   if (const Argument *A = dyn_cast<Argument>(V))
-    if (A->hasByValAttr() || A->hasNoAliasAttr()) {
-      // Don't bother analyzing arguments already known not to escape.
-      if (A->hasNoCaptureAttr())
-        return true;
+    if (A->hasByValAttr() || A->hasNoAliasAttr())
+      // Note even if the argument is marked nocapture we still need to check
+      // for copies made inside the function. The nocapture attribute only
+      // specifies that there are no copies made that outlive the function.
       return !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
-    }
+
   return false;
 }
 
@@ -84,7 +84,7 @@ static bool isEscapeSource(const Value *V) {
 
 /// getObjectSize - Return the size of the object specified by V, or
 /// UnknownSize if unknown.
-static uint64_t getObjectSize(const Value *V, const TargetData &TD,
+static uint64_t getObjectSize(const Value *V, const DataLayout &TD,
                               const TargetLibraryInfo &TLI,
                               bool RoundToAlign = false) {
   uint64_t Size;
@@ -96,8 +96,37 @@ static uint64_t getObjectSize(const Value *V, const TargetData &TD,
 /// isObjectSmallerThan - Return true if we can prove that the object specified
 /// by V is smaller than Size.
 static bool isObjectSmallerThan(const Value *V, uint64_t Size,
-                                const TargetData &TD,
+                                const DataLayout &TD,
                                 const TargetLibraryInfo &TLI) {
+  // Note that the meanings of the "object" are slightly different in the
+  // following contexts:
+  //    c1: llvm::getObjectSize()
+  //    c2: llvm.objectsize() intrinsic
+  //    c3: isObjectSmallerThan()
+  // c1 and c2 share the same meaning; however, the meaning of "object" in c3
+  // refers to the "entire object".
+  //
+  //  Consider this example:
+  //     char *p = (char*)malloc(100)
+  //     char *q = p+80;
+  //
+  //  In the context of c1 and c2, the "object" pointed by q refers to the
+  // stretch of memory of q[0:19]. So, getObjectSize(q) should return 20.
+  //
+  //  However, in the context of c3, the "object" refers to the chunk of memory
+  // being allocated. So, the "object" has 100 bytes, and q points to the middle
+  // the "object". In case q is passed to isObjectSmallerThan() as the 1st
+  // parameter, before the llvm::getObjectSize() is called to get the size of
+  // entire object, we should:
+  //    - either rewind the pointer q to the base-address of the object in
+  //      question (in this case rewind to p), or
+  //    - just give up. It is up to caller to make sure the pointer is pointing
+  //      to the base address the object.
+  // 
+  // We go for 2nd option for simplicity.
+  if (!isIdentifiedObject(V))
+    return false;
+
   // This function needs to use the aligned object size because we allow
   // reads a bit past the end given sufficient alignment.
   uint64_t ObjectSize = getObjectSize(V, TD, TLI, /*RoundToAlign*/true);
@@ -108,7 +137,7 @@ static bool isObjectSmallerThan(const Value *V, uint64_t Size,
 /// isObjectSize - Return true if we can prove that the object specified
 /// by V has size Size.
 static bool isObjectSize(const Value *V, uint64_t Size,
-                         const TargetData &TD, const TargetLibraryInfo &TLI) {
+                         const DataLayout &TD, const TargetLibraryInfo &TLI) {
   uint64_t ObjectSize = getObjectSize(V, TD, TLI);
   return ObjectSize != AliasAnalysis::UnknownSize && ObjectSize == Size;
 }
@@ -151,7 +180,7 @@ namespace {
 /// represented in the result.
 static Value *GetLinearExpression(Value *V, APInt &Scale, APInt &Offset,
                                   ExtensionKind &Extension,
-                                  const TargetData &TD, unsigned Depth) {
+                                  const DataLayout &TD, unsigned Depth) {
   assert(V->getType()->isIntegerTy() && "Not an integer value");
 
   // Limit our recursion depth.
@@ -226,14 +255,14 @@ static Value *GetLinearExpression(Value *V, APInt &Scale, APInt &Offset,
 /// specified amount, but which may have other unrepresented high bits. As such,
 /// the gep cannot necessarily be reconstructed from its decomposed form.
 ///
-/// When TargetData is around, this function is capable of analyzing everything
+/// When DataLayout is around, this function is capable of analyzing everything
 /// that GetUnderlyingObject can look through.  When not, it just looks
 /// through pointer casts.
 ///
 static const Value *
 DecomposeGEPExpression(const Value *V, int64_t &BaseOffs,
                        SmallVectorImpl<VariableGEPIndex> &VarIndices,
-                       const TargetData *TD) {
+                       const DataLayout *TD) {
   // Limit recursion depth to limit compile time in crazy cases.
   unsigned MaxLookup = 6;
   
@@ -277,7 +306,7 @@ DecomposeGEPExpression(const Value *V, int64_t &BaseOffs,
         ->getElementType()->isSized())
       return V;
     
-    // If we are lacking TargetData information, we can't compute the offets of
+    // If we are lacking DataLayout information, we can't compute the offets of
     // elements computed by GEPs.  However, we can handle bitcast equivalent
     // GEPs.
     if (TD == 0) {
@@ -631,7 +660,7 @@ BasicAliasAnalysis::getModRefBehavior(const Function *F) {
   // For intrinsics, we can check the table.
   if (unsigned iid = F->getIntrinsicID()) {
 #define GET_INTRINSIC_MODREF_BEHAVIOR
-#include "llvm/Intrinsics.gen"
+#include "llvm/IR/Intrinsics.gen"
 #undef GET_INTRINSIC_MODREF_BEHAVIOR
   }
 
@@ -851,9 +880,13 @@ BasicAliasAnalysis::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
   // pointers, figure out if the indexes to the GEP tell us anything about the
   // derived pointer.
   if (const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2)) {
+    // Do the base pointers alias?
+    AliasResult BaseAlias = aliasCheck(UnderlyingV1, UnknownSize, 0,
+                                       UnderlyingV2, UnknownSize, 0);
+
     // Check for geps of non-aliasing underlying pointers where the offsets are
     // identical.
-    if (V1Size == V2Size) {
+    if ((BaseAlias == MayAlias) && V1Size == V2Size) {
       // Do the base pointers alias assuming type and size.
       AliasResult PreciseBaseAlias = aliasCheck(UnderlyingV1, V1Size,
                                                 V1TBAAInfo, UnderlyingV2,
@@ -868,7 +901,7 @@ BasicAliasAnalysis::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
         const Value *GEP1BasePtr =
           DecomposeGEPExpression(GEP1, GEP1BaseOffset, GEP1VariableIndices, TD);
         // DecomposeGEPExpression and GetUnderlyingObject should return the
-        // same result except when DecomposeGEPExpression has no TargetData.
+        // same result except when DecomposeGEPExpression has no DataLayout.
         if (GEP1BasePtr != UnderlyingV1 || GEP2BasePtr != UnderlyingV2) {
           assert(TD == 0 &&
              "DecomposeGEPExpression and GetUnderlyingObject disagree!");
@@ -881,10 +914,6 @@ BasicAliasAnalysis::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
         GEP1VariableIndices.clear();
       }
     }
-
-    // Do the base pointers alias?
-    AliasResult BaseAlias = aliasCheck(UnderlyingV1, UnknownSize, 0,
-                                       UnderlyingV2, UnknownSize, 0);
     
     // If we get a No or May, then return it immediately, no amount of analysis
     // will improve this situation.
@@ -902,7 +931,7 @@ BasicAliasAnalysis::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       DecomposeGEPExpression(GEP2, GEP2BaseOffset, GEP2VariableIndices, TD);
     
     // DecomposeGEPExpression and GetUnderlyingObject should return the
-    // same result except when DecomposeGEPExpression has no TargetData.
+    // same result except when DecomposeGEPExpression has no DataLayout.
     if (GEP1BasePtr != UnderlyingV1 || GEP2BasePtr != UnderlyingV2) {
       assert(TD == 0 &&
              "DecomposeGEPExpression and GetUnderlyingObject disagree!");
@@ -937,7 +966,7 @@ BasicAliasAnalysis::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       DecomposeGEPExpression(GEP1, GEP1BaseOffset, GEP1VariableIndices, TD);
     
     // DecomposeGEPExpression and GetUnderlyingObject should return the
-    // same result except when DecomposeGEPExpression has no TargetData.
+    // same result except when DecomposeGEPExpression has no DataLayout.
     if (GEP1BasePtr != UnderlyingV1) {
       assert(TD == 0 &&
              "DecomposeGEPExpression and GetUnderlyingObject disagree!");
@@ -1064,39 +1093,20 @@ BasicAliasAnalysis::aliasPHI(const PHINode *PN, uint64_t PNSize,
                    Location(V2, V2Size, V2TBAAInfo));
       if (PN > V2)
         std::swap(Locs.first, Locs.second);
+      // Analyse the PHIs' inputs under the assumption that the PHIs are
+      // NoAlias.
+      // If the PHIs are May/MustAlias there must be (recursively) an input
+      // operand from outside the PHIs' cycle that is MayAlias/MustAlias or
+      // there must be an operation on the PHIs within the PHIs' value cycle
+      // that causes a MayAlias.
+      // Pretend the phis do not alias.
+      AliasResult Alias = NoAlias;
+      assert(AliasCache.count(Locs) &&
+             "There must exist an entry for the phi node");
+      AliasResult OrigAliasResult = AliasCache[Locs];
+      AliasCache[Locs] = NoAlias;
 
-      AliasResult Alias =
-        aliasCheck(PN->getIncomingValue(0), PNSize, PNTBAAInfo,
-                   PN2->getIncomingValueForBlock(PN->getIncomingBlock(0)),
-                   V2Size, V2TBAAInfo);
-      if (Alias == MayAlias)
-        return MayAlias;
-
-      // If the first source of the PHI nodes NoAlias and the other inputs are
-      // the PHI node itself through some amount of recursion this does not add
-      // any new information so just return NoAlias.
-      // bb:
-      //    ptr = ptr2 + 1
-      // loop:
-      //    ptr_phi = phi [bb, ptr], [loop, ptr_plus_one]
-      //    ptr2_phi = phi [bb, ptr2], [loop, ptr2_plus_one]
-      //    ...
-      //    ptr_plus_one = gep ptr_phi, 1
-      //    ptr2_plus_one = gep ptr2_phi, 1
-      // We assume for the recursion that the the phis (ptr_phi, ptr2_phi) do
-      // not alias each other.
-      bool ArePhisAssumedNoAlias = false;
-      AliasResult OrigAliasResult = NoAlias;
-      if (Alias == NoAlias) {
-        // Pretend the phis do not alias.
-        assert(AliasCache.count(Locs) &&
-               "There must exist an entry for the phi node");
-        OrigAliasResult = AliasCache[Locs];
-        AliasCache[Locs] = NoAlias;
-        ArePhisAssumedNoAlias = true;
-      }
-
-      for (unsigned i = 1, e = PN->getNumIncomingValues(); i != e; ++i) {
+      for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
         AliasResult ThisAlias =
           aliasCheck(PN->getIncomingValue(i), PNSize, PNTBAAInfo,
                      PN2->getIncomingValueForBlock(PN->getIncomingBlock(i)),
@@ -1107,7 +1117,7 @@ BasicAliasAnalysis::aliasPHI(const PHINode *PN, uint64_t PNSize,
       }
 
       // Reset if speculation failed.
-      if (ArePhisAssumedNoAlias && Alias != NoAlias)
+      if (Alias != NoAlias)
         AliasCache[Locs] = OrigAliasResult;
 
       return Alias;
@@ -1245,6 +1255,7 @@ BasicAliasAnalysis::aliasCheck(const Value *V1, uint64_t V1Size,
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
     std::swap(O1, O2);
+    std::swap(V1TBAAInfo, V2TBAAInfo);
   }
   if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
     AliasResult Result = aliasGEP(GV1, V1Size, V1TBAAInfo, V2, V2Size, V2TBAAInfo, O1, O2);
@@ -1254,6 +1265,7 @@ BasicAliasAnalysis::aliasCheck(const Value *V1, uint64_t V1Size,
   if (isa<PHINode>(V2) && !isa<PHINode>(V1)) {
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
+    std::swap(V1TBAAInfo, V2TBAAInfo);
   }
   if (const PHINode *PN = dyn_cast<PHINode>(V1)) {
     AliasResult Result = aliasPHI(PN, V1Size, V1TBAAInfo,
@@ -1264,6 +1276,7 @@ BasicAliasAnalysis::aliasCheck(const Value *V1, uint64_t V1Size,
   if (isa<SelectInst>(V2) && !isa<SelectInst>(V1)) {
     std::swap(V1, V2);
     std::swap(V1Size, V2Size);
+    std::swap(V1TBAAInfo, V2TBAAInfo);
   }
   if (const SelectInst *S1 = dyn_cast<SelectInst>(V1)) {
     AliasResult Result = aliasSelect(S1, V1Size, V1TBAAInfo,

@@ -8,10 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCInstrItineraries.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/MC/MCInstrItineraries.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 
@@ -19,7 +19,7 @@ using namespace llvm;
 
 MCSchedModel MCSchedModel::DefaultSchedModel; // For unknown processors.
 
-/// ReInitMCSubtargetInfo - Set or change the CPU (optionally supplemented
+/// InitMCProcessorInfo - Set or change the CPU (optionally supplemented
 /// with feature string). Recompute feature bits and scheduling model.
 void
 MCSubtargetInfo::InitMCProcessorInfo(StringRef CPU, StringRef FS) {

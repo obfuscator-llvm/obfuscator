@@ -18,7 +18,7 @@ This test serves two purposes:
 
 The list of warnings below should NEVER grow.  It should gradually shrink to 0.
 
-CHECK: Warnings without flags (155):
+CHECK: Warnings without flags (143):
 CHECK-NEXT:   ext_delete_void_ptr_operand
 CHECK-NEXT:   ext_enum_friend
 CHECK-NEXT:   ext_expected_semi_decl_list
@@ -44,7 +44,6 @@ CHECK-NEXT:   pp_out_of_date_dependency
 CHECK-NEXT:   pp_poisoning_existing_macro
 CHECK-NEXT:   pp_pragma_once_in_main_file
 CHECK-NEXT:   pp_pragma_sysheader_in_main_file
-CHECK-NEXT:   pp_undef_builtin_macro
 CHECK-NEXT:   w_asm_qualifier_ignored
 CHECK-NEXT:   warn_accessor_property_type_mismatch
 CHECK-NEXT:   warn_anon_bitfield_width_exceeds_type_size
@@ -57,10 +56,7 @@ CHECK-NEXT:   warn_call_to_pure_virtual_member_function_from_ctor_dtor
 CHECK-NEXT:   warn_call_wrong_number_of_arguments
 CHECK-NEXT:   warn_case_empty_range
 CHECK-NEXT:   warn_char_constant_too_large
-CHECK-NEXT:   warn_cmdline_missing_macro_defs
 CHECK-NEXT:   warn_collection_expr_type
-CHECK-NEXT:   warn_conflicting_param_types
-CHECK-NEXT:   warn_conflicting_ret_types
 CHECK-NEXT:   warn_conflicting_variadic
 CHECK-NEXT:   warn_conv_to_base_not_used
 CHECK-NEXT:   warn_conv_to_self_not_used
@@ -69,9 +65,6 @@ CHECK-NEXT:   warn_delete_array_type
 CHECK-NEXT:   warn_double_const_requires_fp64
 CHECK-NEXT:   warn_drv_assuming_mfloat_abi_is
 CHECK-NEXT:   warn_drv_clang_unsupported
-CHECK-NEXT:   warn_drv_not_using_clang_arch
-CHECK-NEXT:   warn_drv_not_using_clang_cpp
-CHECK-NEXT:   warn_drv_not_using_clang_cxx
 CHECK-NEXT:   warn_drv_objc_gc_unsupported
 CHECK-NEXT:   warn_drv_pch_not_first_include
 CHECK-NEXT:   warn_dup_category_def
@@ -112,7 +105,6 @@ CHECK-NEXT:   warn_not_compound_assign
 CHECK-NEXT:   warn_objc_property_copy_missing_on_block
 CHECK-NEXT:   warn_objc_protocol_qualifier_missing_id
 CHECK-NEXT:   warn_octal_escape_too_large
-CHECK-NEXT:   warn_odr_tag_type_inconsistent
 CHECK-NEXT:   warn_on_superclass_use
 CHECK-NEXT:   warn_param_default_argument_redefinition
 CHECK-NEXT:   warn_partial_specs_not_deducible
@@ -145,20 +137,17 @@ CHECK-NEXT:   warn_pragma_unused_expected_var
 CHECK-NEXT:   warn_pragma_unused_expected_var_arg
 CHECK-NEXT:   warn_pragma_unused_undeclared_var
 CHECK-NEXT:   warn_previous_alias_decl
-CHECK-NEXT:   warn_printf_asterisk_missing_arg
 CHECK-NEXT:   warn_property_attr_mismatch
 CHECK-NEXT:   warn_property_attribute
 CHECK-NEXT:   warn_property_getter_owning_mismatch
 CHECK-NEXT:   warn_property_types_are_incompatible
 CHECK-NEXT:   warn_readonly_property
-CHECK-NEXT:   warn_redecl_library_builtin
 CHECK-NEXT:   warn_redeclaration_without_attribute_prev_attribute_ignored
 CHECK-NEXT:   warn_register_objc_catch_parm
 CHECK-NEXT:   warn_related_result_type_compatibility_class
 CHECK-NEXT:   warn_related_result_type_compatibility_protocol
 CHECK-NEXT:   warn_second_parameter_of_va_start_not_last_named_argument
 CHECK-NEXT:   warn_second_parameter_to_va_arg_never_compatible
-CHECK-NEXT:   warn_standalone_specifier
 CHECK-NEXT:   warn_static_inline_explicit_inst_ignored
 CHECK-NEXT:   warn_static_non_static
 CHECK-NEXT:   warn_template_export_unsupported
@@ -169,7 +158,6 @@ CHECK-NEXT:   warn_unavailable_fwdclass_message
 CHECK-NEXT:   warn_undef_interface
 CHECK-NEXT:   warn_undef_interface_suggest
 CHECK-NEXT:   warn_undef_protocolref
-CHECK-NEXT:   warn_undefined_internal
 CHECK-NEXT:   warn_unknown_method_family
 CHECK-NEXT:   warn_use_out_of_scope_declaration
 CHECK-NEXT:   warn_weak_identifier_undeclared
@@ -177,4 +165,4 @@ CHECK-NEXT:   warn_weak_import
 
 The list of warnings in -Wpedantic should NEVER grow.
 
-CHECK: Number in -Wpedantic (not covered by other -W flags): 37
+CHECK: Number in -Wpedantic (not covered by other -W flags): 29

@@ -241,3 +241,21 @@ def test_get_tokens():
     assert len(tokens) == 7
     assert tokens[0].spelling == 'int'
     assert tokens[1].spelling == 'foo'
+
+def test_get_arguments():
+    tu = get_tu('void foo(int i, int j);')
+    foo = get_cursor(tu, 'foo')
+    arguments = list(foo.get_arguments())
+
+    assert len(arguments) == 2
+    assert arguments[0].spelling == "i"
+    assert arguments[1].spelling == "j"
+
+def test_referenced():
+    tu = get_tu('void foo(); void bar() { foo(); }')
+    foo = get_cursor(tu, 'foo')
+    bar = get_cursor(tu, 'bar')
+    for c in bar.get_children():
+        if c.kind == CursorKind.CALL_EXPR:
+            assert c.referenced.spelling == foo.spelling
+            break

@@ -920,7 +920,7 @@ int rdar_7770737_pos(void)
 
 void pr6302(id x, Class y) {
   // This previously crashed the analyzer (reported in PR 6302)
-  x->isa  = y; // expected-warning {{direct access to objective-c's isa is deprecated in favor of object_setClass() and object_getClass()}}
+  x->isa  = y; // expected-warning {{assignment to Objective-C's isa is deprecated in favor of object_setClass()}}
 }
 
 //===----------------------------------------------------------------------===//
@@ -1086,6 +1086,9 @@ pr8052(u_int boot_addr)
     u_char         *src = (u_char *) ((u_long) bootMP);
     u_char         *dst = (u_char *) boot_addr + ((vm_offset_t) ((((((((1 <<
 12) / (sizeof(pd_entry_t))) - 1) - 1) - (260 - 2))) << 22) | ((0) << 12)));
+#ifdef TEST_64
+// expected-warning@-3 {{cast to 'u_char *' (aka 'unsigned char *') from smaller integer type 'u_int' (aka 'unsigned int')}}
+#endif
     for (x = 0;
          x < size;
          ++x)
@@ -1190,7 +1193,7 @@ static void RDar8424269_B(RDar8424269_A *p, unsigned char *RDar8424269_D,
   tmp2 = tmp2t[2];
 }
 
-// <rdar://problem/8642434> - Handle transparent unions with the AttrNonNullChecker.
+// <rdar://problem/8642434> - Handle transparent unions with the NonNullParamChecker.
 typedef union {
   struct rdar_8642434_typeA *_dq;
 }

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -fblocks %s -Wno-unreachable-code
-// RUN: %clang_cc1 -fsyntax-only -verify -fblocks -std=gnu++11 %s -Wno-unreachable-code
+// RUN: %clang_cc1 -fsyntax-only -verify -fblocks -fcxx-exceptions %s -Wno-unreachable-code
+// RUN: %clang_cc1 -fsyntax-only -verify -fblocks -fcxx-exceptions -std=gnu++11 %s -Wno-unreachable-code
 
 namespace test0 {
   struct D { ~D(); };
@@ -201,4 +201,88 @@ namespace test10 {
   a0:
     return 0;
   }
+}
+
+// pr13812
+namespace test11 {
+  struct C {
+    C(int x);
+    ~C();
+  };
+  void f(void **ip) {
+    static void *ips[] = { &&l0 };
+  l0:  // expected-note {{possible target of indirect goto}}
+    C c0 = 42; // expected-note {{jump exits scope of variable with non-trivial destructor}}
+    goto *ip; // expected-error {{indirect goto might cross protected scopes}}
+  }
+}
+
+namespace test12 {
+  struct C {
+    C(int x);
+    ~C();
+  };
+  void f(void **ip) {
+    static void *ips[] = { &&l0 };
+    const C c0 = 17;
+  l0: // expected-note {{possible target of indirect goto}}
+    const C &c1 = 42; // expected-note {{jump exits scope of variable with non-trivial destructor}}
+    const C &c2 = c0;
+    goto *ip; // expected-error {{indirect goto might cross protected scopes}}
+  }
+}
+
+namespace test13 {
+  struct C {
+    C(int x);
+    ~C();
+    int i;
+  };
+  void f(void **ip) {
+    static void *ips[] = { &&l0 };
+  l0: // expected-note {{possible target of indirect goto}}
+    const int &c1 = C(1).i; // expected-note {{jump exits scope of variable with non-trivial destructor}}
+    goto *ip;  // expected-error {{indirect goto might cross protected scopes}}
+  }
+}
+
+namespace test14 {
+  struct C {
+    C(int x);
+    ~C();
+    operator int&() const;
+  };
+  void f(void **ip) {
+    static void *ips[] = { &&l0 };
+  l0:
+    // no warning since the C temporary is destructed before the goto.
+    const int &c1 = C(1);
+    goto *ip;
+  }
+}
+
+// PR14225
+namespace test15 {
+  void f1() try {
+    goto x; // expected-error {{goto into protected scope}}
+  } catch(...) {  // expected-note {{jump bypasses initialization of catch block}}
+    x: ;
+  }
+  void f2() try {  // expected-note {{jump bypasses initialization of try block}}
+    x: ;
+  } catch(...) {
+    goto x; // expected-error {{goto into protected scope}}
+  }
+}
+
+namespace test16 {
+Invalid inv; // expected-error {{unknown type name}}
+// Make sure this doesn't assert.
+void fn()
+{
+    int c = 0;
+    if (inv)
+Here: ;
+    goto Here;
+}
 }

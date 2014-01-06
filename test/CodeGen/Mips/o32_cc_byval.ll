@@ -12,20 +12,20 @@ define void @f1() nounwind {
 entry:
 ; CHECK: lw  $[[R1:[0-9]+]], %got(f1.s1)
 ; CHECK: addiu $[[R0:[0-9]+]], $[[R1]], %lo(f1.s1)
+; CHECK: lw  $[[R7:[0-9]+]], 12($[[R0]])
+; CHECK: lw  $[[R3:[0-9]+]], 16($[[R0]])
+; CHECK: lw  $[[R4:[0-9]+]], 20($[[R0]])
+; CHECK: lw  $[[R5:[0-9]+]], 24($[[R0]])
 ; CHECK: lw  $[[R6:[0-9]+]], 28($[[R0]])
 ; CHECK: sw  $[[R6]], 36($sp)
-; CHECK: lw  $[[R5:[0-9]+]], 24($[[R0]])
 ; CHECK: sw  $[[R5]], 32($sp)
-; CHECK: lw  $[[R4:[0-9]+]], 20($[[R0]])
 ; CHECK: sw  $[[R4]], 28($sp)
-; CHECK: lw  $[[R3:[0-9]+]], 16($[[R0]])
 ; CHECK: sw  $[[R3]], 24($sp)
-; CHECK: lw  $[[R7:[0-9]+]], 12($[[R0]])
 ; CHECK: sw  $[[R7]], 20($sp)
 ; CHECK: lw  $[[R2:[0-9]+]], 8($[[R0]])
 ; CHECK: sw  $[[R2]], 16($sp)
-; CHECK: lw  $7, 4($[[R0]])
 ; CHECK: lw  $6, %lo(f1.s1)($[[R1]])
+; CHECK: lw  $7, 4($[[R0]])
   %agg.tmp10 = alloca %struct.S3, align 4
   call void @callee1(float 2.000000e+01, %struct.S1* byval bitcast (%0* @f1.s1 to %struct.S1*)) nounwind
   call void @callee2(%struct.S2* byval @f1.s2) nounwind
@@ -118,6 +118,16 @@ entry:
   tail call void @callee4(i32 %tmp, double 2.000000e+00, i64 3, i32 %tmp1, i16 signext 4, i8 signext %tmp2, float 6.000000e+00) nounwind
   ret void
 }
+
+%struct.S4 = type { [4 x i32] }
+
+define void @f5(i64 %a0, %struct.S4* nocapture byval %a1) nounwind {
+entry:
+  tail call void @f6(%struct.S4* byval %a1, i64 %a0) nounwind
+  ret void
+}
+
+declare void @f6(%struct.S4* nocapture byval, i64)
 
 !0 = metadata !{metadata !"int", metadata !1}
 !1 = metadata !{metadata !"omnipotent char", metadata !2}

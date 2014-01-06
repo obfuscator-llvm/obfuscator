@@ -60,7 +60,7 @@ createDiagnostics(unsigned int argc, char **argv) {
   // well formed diagnostic object.
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
   IntrusiveRefCntPtr<DiagnosticsEngine> InterimDiags(
-    new DiagnosticsEngine(DiagIDs, DiagsBuffer));
+    new DiagnosticsEngine(DiagIDs, new DiagnosticOptions(), DiagsBuffer));
 
   // Try to build a CompilerInvocation.
   OwningPtr<CompilerInvocation> Invocation(
@@ -71,8 +71,7 @@ createDiagnostics(unsigned int argc, char **argv) {
 
   // Build the diagnostics parser
   IntrusiveRefCntPtr<DiagnosticsEngine> FinalDiags =
-    CompilerInstance::createDiagnostics(Invocation->getDiagnosticOpts(),
-                                        argc, argv);
+    CompilerInstance::createDiagnostics(&Invocation->getDiagnosticOpts());
   if (!FinalDiags)
     return NULL;
   

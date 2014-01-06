@@ -72,11 +72,22 @@
 /* Define to 1 if you have the <CrashReporterClient.h> header file. */
 #undef HAVE_CRASHREPORTERCLIENT_H
 
-/* Define if __crashreporter_info__ exists. */
+/* can use __crashreporter_info__ */
 #undef HAVE_CRASHREPORTER_INFO
 
 /* Define to 1 if you have the <ctype.h> header file. */
 #undef HAVE_CTYPE_H
+
+/* Define to 1 if you have the <cxxabi.h> header file. */
+#undef HAVE_CXXABI_H
+
+/* Define to 1 if you have the declaration of `FE_ALL_EXCEPT', and to 0 if you
+   don't. */
+#undef HAVE_DECL_FE_ALL_EXCEPT
+
+/* Define to 1 if you have the declaration of `FE_INEXACT', and to 0 if you
+   don't. */
+#undef HAVE_DECL_FE_INEXACT
 
 /* Define to 1 if you have the declaration of `strerror_s', and to 0 if you
    don't. */
@@ -121,6 +132,12 @@
 
 /* Define to 1 if you have the <execinfo.h> header file. */
 #undef HAVE_EXECINFO_H
+
+/* Define to 1 if you have the `exp' function. */
+#undef HAVE_EXP
+
+/* Define to 1 if you have the `exp2' function. */
+#undef HAVE_EXP2
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -212,6 +229,9 @@
 /* Define to 1 if you have the `udis86' library (-ludis86). */
 #undef HAVE_LIBUDIS86
 
+/* Define to 1 if you have the `z' library (-lz). */
+#undef HAVE_LIBZ
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
@@ -224,6 +244,15 @@
 /* Define if you can use -Wl,-R. to pass -R. to the linker, in order to add
    the current directory to the dynamic linker search path. */
 #undef HAVE_LINK_R
+
+/* Define to 1 if you have the `log' function. */
+#undef HAVE_LOG
+
+/* Define to 1 if you have the `log10' function. */
+#undef HAVE_LOG10
+
+/* Define to 1 if you have the `log2' function. */
+#undef HAVE_LOG2
 
 /* Define to 1 if you have the `longjmp' function. */
 #undef HAVE_LONGJMP
@@ -480,6 +509,9 @@
 /* Define if the xdot.py program is available */
 #undef HAVE_XDOT_PY
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
+
 /* Have host's _alloca */
 #undef HAVE__ALLOCA
 
@@ -552,6 +584,9 @@
 /* Define if threads enabled */
 #undef LLVM_ENABLE_THREADS
 
+/* Define if zlib is enabled */
+#undef LLVM_ENABLE_ZLIB
+
 /* Installation directory for config files */
 #undef LLVM_ETCDIR
 
@@ -559,7 +594,7 @@
 #undef LLVM_HAS_ATOMICS
 
 /* Host triple LLVM will be executed on */
-#undef LLVM_HOSTTRIPLE
+#undef LLVM_HOST_TRIPLE
 
 /* Installation directory for include files */
 #undef LLVM_INCLUDEDIR

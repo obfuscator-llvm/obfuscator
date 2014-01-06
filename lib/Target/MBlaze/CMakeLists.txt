@@ -9,7 +9,6 @@ tablegen(LLVM MBlazeGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM MBlazeGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM MBlazeGenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM MBlazeGenIntrinsics.inc -gen-tgt-intrinsic)
-tablegen(LLVM MBlazeGenEDInfo.inc -gen-enhanced-disassembly-info)
 add_public_tablegen_target(MBlazeCommonTableGen)
 
 add_llvm_target(MBlazeCodeGen
@@ -27,7 +26,6 @@ add_llvm_target(MBlazeCodeGen
   MBlazeSelectionDAGInfo.cpp
   MBlazeAsmPrinter.cpp
   MBlazeMCInstLower.cpp
-  MBlazeELFWriterInfo.cpp
   )
 
 add_dependencies(LLVMMBlazeCodeGen intrinsics_gen)

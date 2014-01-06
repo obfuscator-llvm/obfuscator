@@ -25,8 +25,9 @@ constexpr notlit nl1; // expected-error {{constexpr variable cannot have non-lit
 void f2(constexpr int i) {} // expected-error {{function parameter cannot be constexpr}}
 // non-static member
 struct s2 {
-  constexpr int mi1; // expected-error {{non-static data member cannot be constexpr}}
+  constexpr int mi1; // expected-error {{non-static data member cannot be constexpr; did you intend to make it const?}}
   static constexpr int mi2; // expected-error {{requires an initializer}}
+  mutable constexpr int mi3 = 3; // expected-error-re {{non-static data member cannot be constexpr$}} expected-error {{'mutable' and 'const' cannot be mixed}}
 };
 // typedef
 typedef constexpr int CI; // expected-error {{typedef cannot be constexpr}}
@@ -70,7 +71,7 @@ struct ConstexprDtor {
 template <typename T> constexpr T ft(T t) { return t; }
 template <typename T> T gt(T t) { return t; }
 struct S {
-  template<typename T> constexpr T f();
+  template<typename T> constexpr T f(); // expected-warning {{C++1y}}
   template<typename T> T g() const;
 };
 
@@ -80,7 +81,7 @@ template <> char ft(char c) { return c; } // expected-note {{previous}}
 template <> constexpr char ft(char nl); // expected-error {{constexpr declaration of 'ft<char>' follows non-constexpr declaration}}
 template <> constexpr int gt(int nl) { return nl; }
 template <> notlit S::f() const { return notlit(); }
-template <> constexpr int S::g() { return 0; } // expected-note {{previous}}
+template <> constexpr int S::g() { return 0; } // expected-note {{previous}} expected-warning {{C++1y}}
 template <> int S::g() const; // expected-error {{non-constexpr declaration of 'g<int>' follows constexpr declaration}}
 // specializations can drop the 'constexpr' but not the implied 'const'.
 template <> char S::g() { return 0; } // expected-error {{no function template matches}}

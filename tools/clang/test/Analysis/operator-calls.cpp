@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -analyze -analyzer-checker=core,alpha.core,debug.ExprInspection -analyzer-ipa=inlining -verify %s
+// RUN: %clang_cc1 -analyze -analyzer-checker=core,alpha.core,debug.ExprInspection -verify %s
 void clang_analyzer_eval(bool);
 
 struct X0 { };
@@ -47,5 +47,41 @@ namespace UserDefinedConversions {
   void test(const Convertible &obj) {
     clang_analyzer_eval((int)obj == 42); // expected-warning{{TRUE}}
     clang_analyzer_eval(obj); // expected-warning{{TRUE}}
+  }
+}
+
+
+namespace RValues {
+  struct SmallOpaque {
+    float x;
+    int operator +() const {
+      return (int)x;
+    }
+  };
+
+  struct LargeOpaque {
+    float x[4];
+    int operator +() const {
+      return (int)x[0];
+    }
+  };
+
+  SmallOpaque getSmallOpaque() {
+    SmallOpaque obj;
+    obj.x = 1.0;
+    return obj;
+  }
+
+  LargeOpaque getLargeOpaque() {
+    LargeOpaque obj = LargeOpaque();
+    obj.x[0] = 1.0;
+    return obj;
+  }
+
+  void test(int coin) {
+    // Force a cache-out when we try to conjure a temporary region for the operator call.
+    // ...then, don't crash.
+    clang_analyzer_eval(+(coin ? getSmallOpaque() : getSmallOpaque())); // expected-warning{{UNKNOWN}}
+    clang_analyzer_eval(+(coin ? getLargeOpaque() : getLargeOpaque())); // expected-warning{{UNKNOWN}}
   }
 }

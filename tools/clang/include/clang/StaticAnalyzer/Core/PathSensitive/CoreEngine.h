@@ -17,10 +17,10 @@
 
 #include "clang/AST/Expr.h"
 #include "clang/Analysis/AnalysisContext.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/BlockCounter.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/FunctionSummary.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/WorkList.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/BlockCounter.h"
 #include "llvm/ADT/OwningPtr.h"
 
 namespace clang {
@@ -95,6 +95,10 @@ private:
 
   void HandleBranch(const Stmt *Cond, const Stmt *Term, const CFGBlock *B,
                     ExplodedNode *Pred);
+
+  /// Handle conditional logic for running static initializers.
+  void HandleStaticInit(const DeclStmt *DS, const CFGBlock *B,
+                        ExplodedNode *Pred);
 
 private:
   CoreEngine(const CoreEngine &) LLVM_DELETED_FUNCTION;
@@ -180,11 +184,9 @@ public:
 struct NodeBuilderContext {
   const CoreEngine &Eng;
   const CFGBlock *Block;
-  ExplodedNode *Pred;
+  const LocationContext *LC;
   NodeBuilderContext(const CoreEngine &E, const CFGBlock *B, ExplodedNode *N)
-    : Eng(E), Block(B), Pred(N) { assert(B); assert(!N->isSink()); }
-
-  ExplodedNode *getPred() const { return Pred; }
+    : Eng(E), Block(B), LC(N->getLocationContext()) { assert(B); }
 
   /// \brief Return the CFGBlock associated with this builder.
   const CFGBlock *getBlock() const { return Block; }
@@ -193,7 +195,7 @@ struct NodeBuilderContext {
   /// visited on the exploded graph path.
   unsigned blockCount() const {
     return Eng.WList->getBlockCounter().getNumVisited(
-                    Pred->getLocationContext()->getCurrentStackFrame(),
+                    LC->getCurrentStackFrame(),
                     Block->getBlockID());
   }
 };
@@ -465,7 +467,7 @@ public:
     bool operator!=(const iterator &X) const { return I != X.I; }
 
     const LabelDecl *getLabel() const {
-      return llvm::cast<LabelStmt>((*I)->getLabel())->getDecl();
+      return cast<LabelStmt>((*I)->getLabel())->getDecl();
     }
 
     const CFGBlock *getBlock() const {
@@ -512,7 +514,7 @@ public:
     bool operator==(const iterator &X) const { return I == X.I; }
 
     const CaseStmt *getCase() const {
-      return llvm::cast<CaseStmt>((*I)->getLabel());
+      return cast<CaseStmt>((*I)->getLabel());
     }
 
     const CFGBlock *getBlock() const {
@@ -524,7 +526,7 @@ public:
   iterator end() { return iterator(Src->succ_rend()); }
 
   const SwitchStmt *getSwitch() const {
-    return llvm::cast<SwitchStmt>(Src->getTerminator());
+    return cast<SwitchStmt>(Src->getTerminator());
   }
 
   ExplodedNode *generateCaseStmtNode(const iterator &I,

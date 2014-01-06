@@ -18,12 +18,12 @@
 
 #define DEBUG_TYPE "dce"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Instruction.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Instruction.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Target/TargetLibraryInfo.h"
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
 
 STATISTIC(DIEEliminated, "Number of insts removed by DIE pass");
@@ -118,13 +118,8 @@ bool DCE::runOnFunction(Function &F) {
       I->eraseFromParent();
 
       // Remove the instruction from the worklist if it still exists in it.
-      for (std::vector<Instruction*>::iterator WI = WorkList.begin();
-           WI != WorkList.end(); ) {
-        if (*WI == I)
-          WI = WorkList.erase(WI);
-        else
-          ++WI;
-      }
+      WorkList.erase(std::remove(WorkList.begin(), WorkList.end(), I),
+                     WorkList.end());
 
       MadeChange = true;
       ++DCEEliminated;

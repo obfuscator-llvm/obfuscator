@@ -7,11 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/PathV2.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -225,6 +224,18 @@ TEST_F(FileSystemTest, TempFiles) {
   // Make sure Temp1 doesn't exist.
   ASSERT_NO_ERROR(fs::exists(Twine(TempPath), TempFileExists));
   EXPECT_FALSE(TempFileExists);
+
+#ifdef LLVM_ON_WIN32
+  // Path name > 260 chars should get an error.
+  const char *Path270 =
+    "abcdefghijklmnopqrstuvwxyz9abcdefghijklmnopqrstuvwxyz8"
+    "abcdefghijklmnopqrstuvwxyz7abcdefghijklmnopqrstuvwxyz6"
+    "abcdefghijklmnopqrstuvwxyz5abcdefghijklmnopqrstuvwxyz4"
+    "abcdefghijklmnopqrstuvwxyz3abcdefghijklmnopqrstuvwxyz2"
+    "abcdefghijklmnopqrstuvwxyz1abcdefghijklmnopqrstuvwxyz0";
+  EXPECT_EQ(fs::unique_file(Twine(Path270), FileDescriptor, TempPath),
+            windows_error::path_not_found);
+#endif
 }
 
 TEST_F(FileSystemTest, DirectoryIteration) {
@@ -287,12 +298,19 @@ TEST_F(FileSystemTest, DirectoryIteration) {
   ASSERT_LT(z0, za1);
 }
 
+const char elf[] = {0x7f, 'E', 'L', 'F', 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+
 TEST_F(FileSystemTest, Magic) {
   struct type {
     const char *filename;
     const char *magic_str;
-    size_t      magic_str_len;
-  } types [] = {{"magic.archive", "!<arch>\x0A", 8}};
+    size_t magic_str_len;
+    fs::file_magic magic;
+  } types [] = {
+    {"magic.archive", "!<arch>\x0A", 8, fs::file_magic::archive},
+    {"magic.elf", elf, sizeof(elf),
+     fs::file_magic::elf_relocatable}
+  };
 
   // Create some files filled with magic.
   for (type *i = types, *e = types + (sizeof(types) / sizeof(type)); i != e;
@@ -309,6 +327,7 @@ TEST_F(FileSystemTest, Magic) {
     bool res = false;
     ASSERT_NO_ERROR(fs::has_magic(file_pathname.c_str(), magic, res));
     EXPECT_TRUE(res);
+    EXPECT_EQ(i->magic, fs::identify_magic(magic));
   }
 }
 
@@ -351,6 +370,7 @@ TEST_F(FileSystemTest, FileMapping) {
   StringRef Val("hello there");
   {
     fs::mapped_file_region mfr(FileDescriptor,
+                               true,
                                fs::mapped_file_region::readwrite,
                                4096,
                                0,
@@ -375,7 +395,7 @@ TEST_F(FileSystemTest, FileMapping) {
   
   // Unmap temp file
 
-#if LLVM_USE_RVALUE_REFERENCES
+#if LLVM_HAS_RVALUE_REFERENCES
   fs::mapped_file_region m(Twine(TempPath),
                              fs::mapped_file_region::readonly,
                              0,

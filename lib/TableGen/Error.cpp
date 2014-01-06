@@ -15,13 +15,20 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/raw_ostream.h"
+#include <cstdlib>
 
 namespace llvm {
 
 SourceMgr SrcMgr;
+unsigned ErrorsPrinted = 0;
 
 static void PrintMessage(ArrayRef<SMLoc> Loc, SourceMgr::DiagKind Kind,
                          const Twine &Msg) {
+  // Count the total number of errors printed.
+  // This is used to exit with an error code if there were any errors.
+  if (Kind == SourceMgr::DK_Error)
+    ++ErrorsPrinted;
+
   SMLoc NullLoc;
   if (Loc.empty())
     Loc = NullLoc;
@@ -43,10 +50,6 @@ void PrintWarning(const Twine &Msg) {
   errs() << "warning:" << Msg << "\n";
 }
 
-void PrintWarning(const TGError &Warning) {
-  PrintWarning(Warning.getLoc(), Warning.getMessage());
-}
-
 void PrintError(ArrayRef<SMLoc> ErrorLoc, const Twine &Msg) {
   PrintMessage(ErrorLoc, SourceMgr::DK_Error, Msg);
 }
@@ -59,8 +62,14 @@ void PrintError(const Twine &Msg) {
   errs() << "error:" << Msg << "\n";
 }
 
-void PrintError(const TGError &Error) {
-  PrintError(Error.getLoc(), Error.getMessage());
+void PrintFatalError(const std::string &Msg) {
+  PrintError(Twine(Msg));
+  std::exit(1);
+}
+
+void PrintFatalError(ArrayRef<SMLoc> ErrorLoc, const std::string &Msg) {
+  PrintError(ErrorLoc, Msg);
+  std::exit(1);
 }
 
 } // end namespace llvm

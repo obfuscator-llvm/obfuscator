@@ -15,8 +15,8 @@
 #define MIPS_MACHINE_FUNCTION_INFO_H
 
 #include "MipsSubtarget.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
 #include <utility>
@@ -39,28 +39,31 @@ class MipsFunctionInfo : public MachineFunctionInfo {
   /// relocation models.
   unsigned GlobalBaseReg;
 
+  /// Mips16SPAliasReg - keeps track of the virtual register initialized for
+  /// use as an alias for SP for use in load/store of halfword/byte from/to
+  /// the stack
+  unsigned Mips16SPAliasReg;
+
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
   int VarArgsFrameIndex;
 
-  // Range of frame object indices.
-  // InArgFIRange: Range of indices of all frame objects created during call to
-  //               LowerFormalArguments.
-  std::pair<int, int> InArgFIRange;
-  unsigned MaxCallFrameSize;
+  /// True if function has a byval argument.
+  bool HasByvalArg;
 
-  bool EmitNOAT;
+  /// Size of incoming argument area.
+  unsigned IncomingArgSize;
+
+  /// CallsEhReturn - Whether the function calls llvm.eh.return.
+  bool CallsEhReturn;
+
+  /// Frame objects for spilling eh data registers.
+  int EhDataRegFI[4];
 
 public:
   MipsFunctionInfo(MachineFunction& MF)
-  : MF(MF), SRetReturnReg(0), GlobalBaseReg(0),
-    VarArgsFrameIndex(0), InArgFIRange(std::make_pair(-1, 0)),
-    MaxCallFrameSize(0), EmitNOAT(false)
+   : MF(MF), SRetReturnReg(0), GlobalBaseReg(0), Mips16SPAliasReg(0),
+     VarArgsFrameIndex(0), CallsEhReturn(false)
   {}
-
-  bool isInArgFI(int FI) const {
-    return FI <= InArgFIRange.first && FI >= InArgFIRange.second;
-  }
-  void setLastInArgFI(int FI) { InArgFIRange.second = FI; }
 
   unsigned getSRetReturnReg() const { return SRetReturnReg; }
   void setSRetReturnReg(unsigned Reg) { SRetReturnReg = Reg; }
@@ -68,14 +71,27 @@ public:
   bool globalBaseRegSet() const;
   unsigned getGlobalBaseReg();
 
+  bool mips16SPAliasRegSet() const;
+  unsigned getMips16SPAliasReg();
+
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
 
-  unsigned getMaxCallFrameSize() const { return MaxCallFrameSize; }
-  void setMaxCallFrameSize(unsigned S) { MaxCallFrameSize = S; }
+  bool hasByvalArg() const { return HasByvalArg; }
+  void setFormalArgInfo(unsigned Size, bool HasByval) {
+    IncomingArgSize = Size;
+    HasByvalArg = HasByval;
+  }
 
-  bool getEmitNOAT() const { return EmitNOAT; }
-  void setEmitNOAT() { EmitNOAT = true; }
+  unsigned getIncomingArgSize() const { return IncomingArgSize; }
+
+  bool callsEhReturn() const { return CallsEhReturn; }
+  void setCallsEhReturn() { CallsEhReturn = true; }
+
+  void createEhDataRegsFI();
+  int getEhDataRegFI(unsigned Reg) const { return EhDataRegFI[Reg]; }
+  bool isEhDataRegFI(int FI) const;
+
 };
 
 } // end of namespace llvm

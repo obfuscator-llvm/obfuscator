@@ -120,9 +120,19 @@ static bool checkFnHasLiveInYmm(MachineRegisterInfo &MRI) {
   return false;
 }
 
+static bool clobbersAllYmmRegs(const MachineOperand &MO) {
+  for (unsigned reg = X86::YMM0; reg < X86::YMM15; ++reg) {
+    if (!MO.clobbersPhysReg(reg))
+      return false;
+  }
+  return true;
+}
+
 static bool hasYmmReg(MachineInstr *MI) {
   for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
     const MachineOperand &MO = MI->getOperand(i);
+    if (MI->isCall() && MO.isRegMask() && !clobbersAllYmmRegs(MO))
+      return true;
     if (!MO.isReg())
       continue;
     if (MO.isDebug())
@@ -147,7 +157,7 @@ bool VZeroUpperInserter::runOnMachineFunction(MachineFunction &MF) {
   const TargetRegisterClass *RC = &X86::VR256RegClass;
   for (TargetRegisterClass::iterator i = RC->begin(), e = RC->end();
        i != e; i++) {
-    if (MRI.isPhysRegUsed(*i)) {
+    if (!MRI.reg_nodbg_empty(*i)) {
       YMMUsed = true;
       break;
     }

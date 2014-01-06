@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10.0.0 -emit-llvm -o - %s -fexceptions -std=c++11 | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin10.0.0 -fblocks -emit-llvm -o - %s -fexceptions -std=c++11 | FileCheck %s
 
 // CHECK-NOT: @unused
 auto unused = [](int i) { return i+1; };
@@ -71,6 +71,35 @@ void f() {
   int (*fp)(int, int) = [](int x, int y){ return x + y; };
 }
 
+static int k;
+int g() {
+  int &r = k;
+  // CHECK: define internal i32 @"_ZZ1gvENK3$_6clEv"(
+  // CHECK-NOT: }
+  // CHECK: load i32* @_ZL1k,
+  return [] { return r; } ();
+};
+
+// PR14773
+// CHECK: [[ARRVAL:%[0-9a-zA-Z]*]] = load i32* getelementptr inbounds ([0 x i32]* bitcast (<{}>* @_ZZ14staticarrayrefvE5array to [0 x i32]*), i32 0, i64 0), align 4
+// CHECK-NEXT: store i32 [[ARRVAL]]
+void staticarrayref(){
+  static int array[] = {};
+  (void)[](){
+    int (&xxx)[0] = array;
+    int y = xxx[0];
+  }();
+}
+
+// CHECK: define internal void @"_ZZ1hvEN3$_88__invokeEv"(%struct.A* noalias sret %agg.result) {{.*}} {
+// CHECK-NOT: =
+// CHECK: call void @"_ZZ1hvENK3$_8clEv"(%struct.A* sret %agg.result,
+// CHECK-NEXT: ret void
+struct A { ~A(); };
+void h() {
+  A (*h)() = [] { return A(); };
+}
+
 // CHECK: define internal i32 @"_ZZ1fvEN3$_58__invokeEii"
 // CHECK: store i32
 // CHECK-NEXT: store i32
@@ -80,3 +109,14 @@ void f() {
 // CHECK-NEXT: ret i32
 
 // CHECK: define internal void @"_ZZ1e1ES_bEN3$_4D2Ev"
+
+// <rdar://problem/12778708>
+struct XXX {};
+void nestedCapture () {
+  XXX localKey;
+  ^() {
+    [&]() {
+      ^{ XXX k = localKey; };
+    };
+  };
+}

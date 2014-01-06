@@ -2352,6 +2352,32 @@ _func:
 @ CHECK: srsia	sp, #5                  @ encoding: [0x8d,0xe9,0x05,0xc0]
 @ CHECK: srsia	sp!, #5                 @ encoding: [0xad,0xe9,0x05,0xc0]
 
+        srsdb #1
+        srsia #0
+
+        srsdb #19!
+        srsia #2!
+
+        srsea #10
+        srsfd #9
+
+        srsea #5!
+        srsfd #5!
+
+        srs #5
+        srs #5!
+
+@ CHECK: srsdb	sp, #1                  @ encoding: [0x0d,0xe8,0x01,0xc0]
+@ CHECK: srsia	sp, #0                  @ encoding: [0x8d,0xe9,0x00,0xc0]
+@ CHECK: srsdb	sp!, #19                @ encoding: [0x2d,0xe8,0x13,0xc0]
+@ CHECK: srsia	sp!, #2                 @ encoding: [0xad,0xe9,0x02,0xc0]
+@ CHECK: srsdb	sp, #10                 @ encoding: [0x0d,0xe8,0x0a,0xc0]
+@ CHECK: srsia	sp, #9                  @ encoding: [0x8d,0xe9,0x09,0xc0]
+@ CHECK: srsdb	sp!, #5                 @ encoding: [0x2d,0xe8,0x05,0xc0]
+@ CHECK: srsia	sp!, #5                 @ encoding: [0xad,0xe9,0x05,0xc0]
+@ CHECK: srsia	sp, #5                  @ encoding: [0x8d,0xe9,0x05,0xc0]
+@ CHECK: srsia	sp!, #5                 @ encoding: [0xad,0xe9,0x05,0xc0]
+
 
 @------------------------------------------------------------------------------
 @ SSAT
@@ -3460,8 +3486,6 @@ _func:
         wfelt
         wfige
         yieldlt
-        hint #5
-        hint.w #5
         hint.w #4
         hint #3
         hint #2
@@ -3475,8 +3499,6 @@ _func:
 @ CHECK: wfelt                          @ encoding: [0x20,0xbf]
 @ CHECK: wfige                          @ encoding: [0x30,0xbf]
 @ CHECK: yieldlt                        @ encoding: [0x10,0xbf]
-@ CHECK: hint	#5                      @ encoding: [0xaf,0xf3,0x05,0x80]
-@ CHECK: hint	#5                      @ encoding: [0xaf,0xf3,0x05,0x80]
 @ CHECK: sev.w                          @ encoding: [0xaf,0xf3,0x04,0x80]
 @ CHECK: wfi.w                          @ encoding: [0xaf,0xf3,0x03,0x80]
 @ CHECK: wfe.w                          @ encoding: [0xaf,0xf3,0x02,0x80]
@@ -3509,3 +3531,7 @@ _func:
 @ CHECK: ldrh.w	r11, [pc, #-22]         @ encoding: [0x3f,0xf8,0x16,0xb0]
 @ CHECK: ldrsb.w r11, [pc, #-22]        @ encoding: [0x1f,0xf9,0x16,0xb0]
 @ CHECK: ldrsh.w r11, [pc, #-22]        @ encoding: [0x3f,0xf9,0x16,0xb0]
+
+@ rdar://12596361
+        ldr r1, [pc, #12]
+@ CHECK: ldr.n r1, [pc, #12]        @ encoding: [0x03,0x49]

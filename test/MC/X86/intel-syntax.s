@@ -56,13 +56,270 @@ _main:
 // CHECK:	fld	%st(0)
 	fld	ST(0)
 // CHECK:	movl	%fs:(%rdi), %eax
-        mov     EAX, DWORD PTR FS:[RDI]
-// CHECK:	leal	(,%rdi,4), %r8d
-        lea     R8D, DWORD PTR [4*RDI]
-// CHECK:        movl    _fnan(,%ecx,4), %ecx
-        mov     ECX, DWORD PTR [4*ECX + _fnan]
-// CHECK:       movq    %fs:320, %rax
-        mov     RAX, QWORD PTR FS:[320]
-// CHECK:       vpgatherdd %xmm8, (%r15,%xmm9,2), %xmm1
-        vpgatherdd XMM10, DWORD PTR [R15 + 2*XMM9], XMM8
-	ret
+    mov EAX, DWORD PTR FS:[RDI]
+// CHECK: leal (,%rdi,4), %r8d
+    lea R8D, DWORD PTR [4*RDI]
+// CHECK: movl _fnan(,%ecx,4), %ecx
+    mov ECX, DWORD PTR [4*ECX + _fnan]
+// CHECK: movq %fs:320, %rax
+    mov RAX, QWORD PTR FS:[320]
+// CHECK: vpgatherdd %xmm8, (%r15,%xmm9,2), %xmm1
+    vpgatherdd XMM10, DWORD PTR [R15 + 2*XMM9], XMM8
+// CHECK: movsd	-8, %xmm5
+    movsd   XMM5, QWORD PTR [-8]
+// CHECK: movl %ecx, (%eax)
+    mov [eax], ecx
+// CHECK: movl %ecx, (,%ebx,4)
+    mov [4*ebx], ecx
+ // CHECK:   movl %ecx, (,%ebx,4)
+    mov [ebx*4], ecx
+// CHECK: movl %ecx, 1024
+    mov [1024], ecx
+// CHECK: movl %ecx, 4132
+    mov [0x1024], ecx
+// CHECK: movl %ecx, 32        
+    mov [16 + 16], ecx
+// CHECK: movl %ecx, 0
+    mov [16 - 16], ecx        
+// CHECK: movl %ecx, 32        
+    mov [16][16], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [eax + 4*ebx], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [eax + ebx*4], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [4*ebx + eax], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [ebx*4 + eax], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [eax][4*ebx], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [eax][ebx*4], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [4*ebx][eax], ecx
+// CHECK: movl %ecx, (%eax,%ebx,4)
+    mov [ebx*4][eax], ecx
+// CHECK: movl %ecx, 12(%eax)
+    mov [eax + 12], ecx
+// CHECK: movl %ecx, 12(%eax)
+    mov [12 + eax], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [eax + 16 + 16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16 + eax + 16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16 + 16 + eax], ecx
+// CHECK: movl %ecx, 12(%eax)
+    mov [eax][12], ecx
+// CHECK: movl %ecx, 12(%eax)
+    mov [12][eax], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [eax][16 + 16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [eax + 16][16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [eax][16][16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16][eax + 16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16 + eax][16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16][16 + eax], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16 + 16][eax], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [eax][16][16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16][eax][16], ecx
+// CHECK: movl %ecx, 32(%eax)
+    mov [16][16][eax], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [4*ebx + 16], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [ebx*4 + 16], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [4*ebx][16], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [ebx*4][16], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [16 + 4*ebx], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [16 + ebx*4], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [16][4*ebx], ecx
+// CHECK: movl %ecx, 16(,%ebx,4)
+    mov [16][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 4*ebx + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 16 + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx + eax + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx + 16 + eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][4*ebx + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][16 + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx][eax + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx][16 + eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax + 4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 4*ebx][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 16][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx + eax][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx + 16][eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][4*ebx][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][16][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx][eax][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [4*ebx][16][eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax][4*ebx], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + ebx*4 + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 16 + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4 + eax + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4 + 16 + eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][ebx*4 + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][16 + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4][eax + 16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4][16 + eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax + ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + ebx*4][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax + 16][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4 + eax][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4 + 16][eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16 + eax][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][ebx*4][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [eax][16][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4][eax][16], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [ebx*4][16][eax], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax][ebx*4], ecx
+// CHECK: movl %ecx, 16(%eax,%ebx,4)
+    mov [16][eax][ebx*4], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][ebx*4 - 16], ecx
+
+// CHECK: prefetchnta 12800(%esi)
+    prefetchnta [esi + (200*64)]
+// CHECK: prefetchnta 32(%esi)
+    prefetchnta [esi + (64/2)]
+// CHECK: prefetchnta 128(%esi)
+    prefetchnta [esi + (64/2*4)]
+// CHECK: prefetchnta 8(%esi)
+    prefetchnta [esi + (64/(2*4))]
+// CHECK: prefetchnta 48(%esi)
+    prefetchnta [esi + (64/(2*4)+40)]
+
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][ebx*4 - 2*8], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][4*ebx - 2*8], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax + 4*ebx - 2*8], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [12 + eax + (4*ebx) - 2*14], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][ebx*4 - 2*2*2*2], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][ebx*4 - (2*8)], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax][ebx*4 - 2 * 8 + 4 - 4], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax + ebx*4 - 2 * 8 + 4 - 4], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax + ebx*4 - 2 * ((8 + 4) - 4)], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [-2 * ((8 + 4) - 4) + eax + ebx*4], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [((-2) * ((8 + 4) - 4)) + eax + ebx*4], ecx
+// CHECK: movl %ecx, -16(%eax,%ebx,4)
+    mov [eax + ((-2) * ((8 + 4) - 4)) + ebx*4], ecx
+// CHECK: movl %ecx, 96(%eax,%ebx,4)
+    mov [eax + ((-2) * ((8 + 4) * -4)) + ebx*4], ecx
+// CHECK: movl %ecx, -8(%eax,%ebx,4)
+    mov [eax][-8][ebx*4], ecx
+// CHECK: movl %ecx, -2(%eax,%ebx,4)
+    mov [eax][16/-8][ebx*4], ecx
+// CHECK: movl %ecx, -2(%eax,%ebx,4)
+    mov [eax][(16)/-8][ebx*4], ecx
+
+// CHECK: setb %al
+    setc al
+// CHECK: sete %al
+    setz al
+// CHECK: setbe %al
+    setna al
+// CHECK: setae %al
+    setnb al
+// CHECK: setae %al
+    setnc al
+// CHECK: setle %al
+    setng al
+// CHECK: setge %al
+    setnl al
+// CHECK: setne %al
+    setnz al
+// CHECK: setp %al
+    setpe al
+// CHECK: setnp %al
+    setpo al
+// CHECK: setb %al
+    setnae al
+// CHECK: seta %al
+    setnbe al
+// CHECK: setl %al
+    setnge al
+// CHECK: setg %al
+    setnle al
+// CHECK: jne _foo
+    jnz _foo
+    ret

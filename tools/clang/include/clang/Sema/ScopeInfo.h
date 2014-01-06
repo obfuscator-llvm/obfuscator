@@ -16,6 +16,7 @@
 #define LLVM_CLANG_SEMA_SCOPE_INFO_H
 
 #include "clang/AST/Type.h"
+#include "clang/Basic/CapturedStmt.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
@@ -24,9 +25,11 @@ namespace clang {
 
 class Decl;
 class BlockDecl;
+class CapturedDecl;
 class CXXMethodDecl;
 class ObjCPropertyDecl;
 class IdentifierInfo;
+class ImplicitParamDecl;
 class LabelDecl;
 class ReturnStmt;
 class Scope;
@@ -73,7 +76,8 @@ protected:
   enum ScopeKind {
     SK_Function,
     SK_Block,
-    SK_Lambda
+    SK_Lambda,
+    SK_CapturedRegion
   };
   
 public:
@@ -91,13 +95,13 @@ public:
   /// \brief Whether this function contains any indirect gotos.
   bool HasIndirectGoto;
 
-  /// A flag that is set when parsing a -dealloc method and no [super dealloc]
-  /// call was found yet.
-  bool ObjCShouldCallSuperDealloc;
+  /// \brief Whether a statement was dropped because it was invalid.
+  bool HasDroppedStmt;
 
-  /// A flag that is set when parsing a -finalize method and no [super finalize]
-  /// call was found yet.
-  bool ObjCShouldCallSuperFinalize;
+  /// A flag that is set when parsing a method that must call super's
+  /// implementation, such as \c -dealloc, \c -finalize, or any method marked
+  /// with \c __attribute__((objc_requires_super)).
+  bool ObjCShouldCallSuper;
 
   /// \brief Used to determine if errors occurred in this function or block.
   DiagnosticErrorTrap ErrorTrap;
@@ -290,9 +294,14 @@ public:
     HasIndirectGoto = true;
   }
 
+  void setHasDroppedStmt() {
+    HasDroppedStmt = true;
+  }
+
   bool NeedsScopeChecking() const {
-    return HasIndirectGoto ||
-          (HasBranchProtectedScope && HasBranchIntoScope);
+    return !HasDroppedStmt &&
+        (HasIndirectGoto ||
+          (HasBranchProtectedScope && HasBranchIntoScope));
   }
   
   FunctionScopeInfo(DiagnosticsEngine &Diag)
@@ -300,8 +309,8 @@ public:
       HasBranchProtectedScope(false),
       HasBranchIntoScope(false),
       HasIndirectGoto(false),
-      ObjCShouldCallSuperDealloc(false),
-      ObjCShouldCallSuperFinalize(false),
+      HasDroppedStmt(false),
+      ObjCShouldCallSuper(false),
       ErrorTrap(Diag) { }
 
   virtual ~FunctionScopeInfo();
@@ -309,14 +318,13 @@ public:
   /// \brief Clear out the information in this function scope, making it
   /// suitable for reuse.
   void Clear();
-
-  static bool classof(const FunctionScopeInfo *FSI) { return true; }
 };
 
 class CapturingScopeInfo : public FunctionScopeInfo {
 public:
   enum ImplicitCaptureStyle {
-    ImpCap_None, ImpCap_LambdaByval, ImpCap_LambdaByref, ImpCap_Block
+    ImpCap_None, ImpCap_LambdaByval, ImpCap_LambdaByref, ImpCap_Block,
+    ImpCap_CapturedRegion
   };
 
   ImplicitCaptureStyle ImpCaptureStyle;
@@ -458,9 +466,9 @@ public:
   }
 
   static bool classof(const FunctionScopeInfo *FSI) { 
-    return FSI->Kind == SK_Block || FSI->Kind == SK_Lambda; 
+    return FSI->Kind == SK_Block || FSI->Kind == SK_Lambda
+                                 || FSI->Kind == SK_CapturedRegion;
   }
-  static bool classof(const CapturingScopeInfo *BSI) { return true; }
 };
 
 /// \brief Retains information about a block that is currently being parsed.
@@ -488,7 +496,46 @@ public:
   static bool classof(const FunctionScopeInfo *FSI) { 
     return FSI->Kind == SK_Block; 
   }
-  static bool classof(const BlockScopeInfo *BSI) { return true; }
+};
+
+/// \brief Retains information about a captured region.
+class CapturedRegionScopeInfo: public CapturingScopeInfo {
+public:
+  /// \brief The CapturedDecl for this statement.
+  CapturedDecl *TheCapturedDecl;
+  /// \brief The captured record type.
+  RecordDecl *TheRecordDecl;
+  /// \brief This is the enclosing scope of the captured region.
+  Scope *TheScope;
+  /// \brief The implicit parameter for the captured variables.
+  ImplicitParamDecl *ContextParam;
+  /// \brief The kind of captured region.
+  CapturedRegionKind CapRegionKind;
+
+  CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
+                          RecordDecl *RD, ImplicitParamDecl *Context,
+                          CapturedRegionKind K)
+    : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
+      TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
+      ContextParam(Context), CapRegionKind(K)
+  {
+    Kind = SK_CapturedRegion;
+  }
+
+  virtual ~CapturedRegionScopeInfo();
+
+  /// \brief A descriptive name for the kind of captured region this is.
+  StringRef getRegionName() const {
+    switch (CapRegionKind) {
+    case CR_Default:
+      return "default captured statement";
+    }
+    llvm_unreachable("Invalid captured region kind!");
+  }
+
+  static bool classof(const FunctionScopeInfo *FSI) {
+    return FSI->Kind == SK_CapturedRegion;
+  }
 };
 
 class LambdaScopeInfo : public CapturingScopeInfo {
@@ -519,11 +566,11 @@ public:
   bool ContainsUnexpandedParameterPack;
 
   /// \brief Variables used to index into by-copy array captures.
-  llvm::SmallVector<VarDecl *, 4> ArrayIndexVars;
+  SmallVector<VarDecl *, 4> ArrayIndexVars;
 
   /// \brief Offsets into the ArrayIndexVars array at which each capture starts
   /// its list of array index variables.
-  llvm::SmallVector<unsigned, 4> ArrayIndexStarts;
+  SmallVector<unsigned, 4> ArrayIndexStarts;
   
   LambdaScopeInfo(DiagnosticsEngine &Diag, CXXRecordDecl *Lambda,
                   CXXMethodDecl *CallOperator)
@@ -544,8 +591,6 @@ public:
   static bool classof(const FunctionScopeInfo *FSI) {
     return FSI->Kind == SK_Lambda; 
   }
-  static bool classof(const LambdaScopeInfo *BSI) { return true; }
-
 };
 
 

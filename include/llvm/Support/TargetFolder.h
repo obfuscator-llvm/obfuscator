@@ -19,18 +19,18 @@
 #ifndef LLVM_SUPPORT_TARGETFOLDER_H
 #define LLVM_SUPPORT_TARGETFOLDER_H
 
-#include "llvm/Constants.h"
-#include "llvm/InstrTypes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/InstrTypes.h"
 
 namespace llvm {
 
-class TargetData;
+class DataLayout;
 
 /// TargetFolder - Create constants with target dependent folding.
 class TargetFolder {
-  const TargetData *TD;
+  const DataLayout *TD;
 
   /// Fold - Fold the constant using target specific information.
   Constant *Fold(Constant *C) const {
@@ -41,7 +41,7 @@ class TargetFolder {
   }
 
 public:
-  explicit TargetFolder(const TargetData *TheTD) : TD(TheTD) {}
+  explicit TargetFolder(const DataLayout *TheTD) : TD(TheTD) {}
 
   //===--------------------------------------------------------------------===//
   // Binary Operators

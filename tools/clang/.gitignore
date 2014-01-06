@@ -17,6 +17,7 @@
 *.pyc
 # vim swap files
 .*.swp
+.sw?
 
 #==============================================================================#
 # Explicit files to ignore (only matches one).
@@ -29,3 +30,6 @@ cscope.out
 #==============================================================================#
 # Clang extra user tools, which is tracked independently (clang-tools-extra).
 tools/extra
+# Sphinx build products
+docs/_build
+docs/analyzer/_build

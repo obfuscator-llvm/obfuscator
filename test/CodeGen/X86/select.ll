@@ -282,7 +282,7 @@ define i32 @test13(i32 %a, i32 %b) nounwind {
 ; ATOM: test13:
 ; ATOM: cmpl
 ; ATOM-NEXT: sbbl
-; ATOM-NEXT: ret
+; ATOM: ret
 }
 
 define i32 @test14(i32 %a, i32 %b) nounwind {
@@ -299,7 +299,7 @@ define i32 @test14(i32 %a, i32 %b) nounwind {
 ; ATOM: cmpl
 ; ATOM-NEXT: sbbl
 ; ATOM-NEXT: notl
-; ATOM-NEXT: ret
+; ATOM: ret
 }
 
 ; rdar://10961709
@@ -343,4 +343,17 @@ entry:
 ; ATOM: test17:
 ; ATOM: negw
 ; ATOM: sbbw
+}
+
+define i8 @test18(i32 %x, i8 zeroext %a, i8 zeroext %b) nounwind {
+  %cmp = icmp slt i32 %x, 15
+  %sel = select i1 %cmp, i8 %a, i8 %b
+  ret i8 %sel
+; CHECK: test18:
+; CHECK: cmpl $15, %edi
+; CHECK: cmovgel %edx
+
+; ATOM: test18:
+; ATOM: cmpl $15, %edi
+; ATOM: cmovgel %edx
 }

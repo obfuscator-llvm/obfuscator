@@ -33,7 +33,9 @@ class FileEntry;
 /// Indicating that a line expects an error or a warning is simple. Put a
 /// comment on the line that has the diagnostic, use:
 ///
-///     expected-{error,warning,note}
+/// \code
+///   expected-{error,warning,note}
+/// \endcode
 ///
 /// to tag if it's an expected error or warning, and place the expected text
 /// between {{ and }} markers. The full text doesn't have to be included, only
@@ -58,6 +60,18 @@ class FileEntry;
 ///
 /// The line number may be absolute (as above), or relative to the current
 /// line by prefixing the number with either '+' or '-'.
+///
+/// If the diagnostic is generated in a separate file, for example in a shared
+/// header file, it may be beneficial to be able to declare the file in which
+/// the diagnostic will appear, rather than placing the expected-* directive in
+/// the actual file itself.  This can be done using the following syntax:
+///
+/// \code
+///   // expected-error@path/include.h:15 {{error message}}
+/// \endcode
+///
+/// The path can be absolute or relative and the same search paths will be used
+/// as for #include directives.
 ///
 /// The simple syntax above allows each specification to match exactly one
 /// error.  You can use the extended syntax to customize this. The extended
@@ -94,12 +108,15 @@ class FileEntry;
 ///
 /// In this example, the diagnostic may appear only once, if at all.
 ///
-/// Regex matching mode may be selected by appending '-re' to type. Example:
+/// Regex matching mode may be selected by appending '-re' to type, such as:
 ///
+/// \code
 ///   expected-error-re
+/// \endcode
 ///
 /// Examples matching error: "variable has incomplete type 'struct s'"
 ///
+/// \code
 ///   // expected-error {{variable has incomplete type 'struct s'}}
 ///   // expected-error {{variable has incomplete type}}
 ///
@@ -107,6 +124,15 @@ class FileEntry;
 ///   // expected-error-re {{variable has has type 'struct .*'}}
 ///   // expected-error-re {{variable has has type 'struct (.*)'}}
 ///   // expected-error-re {{variable has has type 'struct[[:space:]](.*)'}}
+/// \endcode
+///
+/// VerifyDiagnosticConsumer expects at least one expected-* directive to
+/// be found inside the source code.  If no diagnostics are expected the
+/// following directive can be used to indicate this:
+///
+/// \code
+///   // expected-no-diagnostics
+/// \endcode
 ///
 class VerifyDiagnosticConsumer: public DiagnosticConsumer,
                                 public CommentHandler {
@@ -166,6 +192,13 @@ public:
     }
   };
 
+  enum DirectiveStatus {
+    HasNoDirectives,
+    HasNoDirectivesReported,
+    HasExpectedNoDiagnostics,
+    HasOtherExpectedDirectives
+  };
+
 private:
   DiagnosticsEngine &Diags;
   DiagnosticConsumer *PrimaryClient;
@@ -175,6 +208,7 @@ private:
   const LangOptions *LangOpts;
   SourceManager *SrcManager;
   unsigned ActiveSourceFiles;
+  DirectiveStatus Status;
   ExpectedData ED;
 
   void CheckDiagnostics();
@@ -232,8 +266,6 @@ public:
 
   virtual void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                 const Diagnostic &Info);
-  
-  virtual DiagnosticConsumer *clone(DiagnosticsEngine &Diags) const;
 };
 
 } // end namspace clang

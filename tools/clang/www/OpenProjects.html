@@ -21,13 +21,10 @@ intended to be comprehensive.  Please ask on cfe-dev for more specifics or to
 verify that one of these isn't already completed. :)</p>
 
 <ul>
-<li><b>Undefined behavior checking</b>: CodeGen could
-insert runtime checks for all sorts of different undefined behaviors, from 
-reading uninitialized variables, buffer overflows, and many other things.  This
-checking would be expensive, but the optimizers could eliminate many of the 
-checks in some cases, and it would be very interesting to test code in this mode
-for certain crowds of people.  Because the inserted code is coming from clang,
-the "abort" message could be very detailed about exactly what went wrong.</li>
+<li><b>Undefined behavior checking</b>:
+Improve and extend the runtime checks for undefined behavior which CodeGen
+inserts for the various <tt>-fsanitize=</tt> modes. A lot of issues can already
+be caught, but there is more to do here.</li>
 
 <li><b>Improve target support</b>: The current target interfaces are heavily
 stubbed out and need to be implemented fully.  See the FIXME's in TargetInfo.
@@ -40,7 +37,8 @@ about source code. One great application of Clang would be to build an
 auto-documentation system like doxygen that generates code documentation from
 source code. The advantage of using Clang for such a tool is that the tool would
 use the same preprocessor/parser/ASTs as the compiler itself, giving it a very
-rich understanding of the code.</li> 
+rich understanding of the code. Clang is already able to read and understand
+doxygen markup, but cannot yet generate documentation from it.</li>
 
 <li><b>Use clang libraries to implement better versions of existing tools</b>:
 Clang is built as a set of libraries, which means that it is possible to
@@ -51,9 +49,9 @@ href="http://delta.tigris.org/">delta testcase reduction tool</a>, and the
 "indent" source reformatting tool.
 distcc can be improved to scale better and be more efficient.  Delta could be
 faster and more efficient at reducing C-family programs if built on the clang
-preprocessor, indent could do proper formatting for complex C++ features, and it
-would be straight-forward to extend a clang-based implementation to handle
-simple structural rules like those in <a
+preprocessor. The clang-based indent replacement,
+<a href="http://clang.llvm.org/docs/ClangFormat.html">clang-format</a>,
+could be taught to handle simple structural rules like those in <a
 href="http://llvm.org/docs/CodingStandards.html#hl_earlyexit">the LLVM coding
 standards</a>.</li>
 
@@ -78,17 +76,11 @@ improve the quality of clang by self-testing. Some examples:
 </ul>
 </li>
 
-<li><b>Continue work on C++'11 support</b>:
-  C++'98 is feature complete, but there is still a lot of C++'11 features to
+<li><b>Continue work on C++1y support</b>:
+  C++98 and C++11 are feature-complete, but there are still several C++1y features to
   implement.  Please see the <a href="cxx_status.html">C++ status report
   page</a> to find out what is missing.</li>
-</ul>
 
-<p>If you hit a bug with clang, it is very useful for us if you reduce the code
-that demonstrates the problem down to something small.  There are many ways to
-do this; ask on cfe-dev for advice.</p>
-
-<ul>
 <li><b>StringRef'ize APIs</b>: A thankless but incredibly useful project is
 StringRef'izing (converting to use <tt>llvm::StringRef</tt> instead of <tt>const
 char *</tt> or <tt>std::string</tt>) various clang interfaces. This generally
@@ -107,7 +99,33 @@ Driver</a> web page for more information.</li>
     <li><i>Documented</i>, with appropriate Schema against which the output of Clang's XML formatter can be verified.</li>
     <li><i>Stable</i> across Clang versions.</li>
   </ul></li>
+
+<li><b>Configuration Manager</b>: Clang/LLVM works on a large number of
+architectures and operating systems and can cross-compile to a similarly large
+number of configurations, but the pitfalls of chosing the command-line
+options, making sure the right sub-architecture is chosen and that the correct
+optional elements of your particular system can be a pain.
+
+<p>A tool that would investigate hosts and targets, and store the configuration
+in files that can later be used by Clang itself to avoid command-line options,
+especially the ones regarding which target options to use, would greatle alleviate
+this problem. A simple tool, with little or no dependency on LLVM itself, that
+will investigate a target architecture by probing hardware, software, libraries
+and compiling and executing code to identify all properties that would be relevant
+to command-line options (VFP, SSE, NEON, ARM vs. Thumb etc), triple settings etc.</p>
+
+<p>The first stage is to build a CFLAGS for Clang that would produce code on the
+current Host to the identified Target.</p>
+
+<p>The second stage would be to produce a configuration file (that can be used
+independently of the Host) so that Clang can read it and not need a gazillion
+of command-line options. Such file should be simple JSON / INI or anything that
+a text editor could change.</p>
 </ul>
+
+<p>If you hit a bug with clang, it is very useful for us if you reduce the code
+that demonstrates the problem down to something small.  There are many ways to
+do this; ask on cfe-dev for advice.</p>
 
 </div>
 </body>

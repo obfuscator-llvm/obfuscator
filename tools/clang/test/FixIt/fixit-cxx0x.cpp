@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify -std=c++11 %s
+// RUN: %clang_cc1 -verify -std=c++11 -Wno-anonymous-pack-parens %s
 // RUN: cp %s %t
 // RUN: not %clang_cc1 -x c++ -std=c++11 -fixit %t
 // RUN: %clang_cc1 -Wall -pedantic -x c++ -std=c++11 %t
@@ -66,13 +66,11 @@ const char *p = "foo"bar; // expected-error {{requires a space between}}
 #define ord - '0'
 int k = '4'ord; // expected-error {{requires a space between}}
 
-void operator""_x(char); // expected-error {{requires a space}}
 void operator"x" _y(char); // expected-error {{must be '""'}}
 void operator L"" _z(char); // expected-error {{encoding prefix}}
 void operator "x" "y" U"z" ""_whoops "z" "y"(char); // expected-error {{must be '""'}}
 
 void f() {
-  'a'_x;
   'b'_y;
   'c'_z;
   'd'_whoops;
@@ -121,4 +119,16 @@ namespace MissingSemi {
   namespace N {
     struct d // expected-error {{expected ';' after struct}}
   }
+}
+
+namespace NonStaticConstexpr {
+  struct foo {
+    constexpr int i; // expected-error {{non-static data member cannot be constexpr; did you intend to make it const?}}
+    constexpr int j = 7; // expected-error {{non-static data member cannot be constexpr; did you intend to make it static?}}
+    foo() : i(3) {
+    }
+    static int get_j() {
+      return j;
+    }
+  };
 }

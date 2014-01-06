@@ -75,9 +75,9 @@ ifeq ($(OS),Darwin)
 RuntimeDirs += darwin
 RuntimeLibrary.darwin.Configs := \
 	eprintf.a 10.4.a osx.a ios.a cc_kext.a cc_kext_ios5.a \
-	profile_osx.a profile_ios.a
-#	Apple Internal: Disable building asan libraries. <rdar://12423266>
-#	asan_osx.a asan_osx_dynamic.dylib
+	asan_osx.a asan_osx_dynamic.dylib \
+	profile_osx.a profile_ios.a \
+	ubsan_osx.a
 endif
 
 # On Linux, include a library which has all the runtime functions.
@@ -85,14 +85,41 @@ ifeq ($(OS),Linux)
 RuntimeDirs += linux
 RuntimeLibrary.linux.Configs :=
 
+# TryCompile compiler source flags
+# Returns exit code of running a compiler invocation.
+TryCompile = \
+  $(shell \
+    cflags=""; \
+    for flag in $(3); do \
+      cflags="$$cflags $$flag"; \
+    done; \
+    $(1) $$cflags $(2) -o /dev/null > /dev/null 2> /dev/null ; \
+    echo $$?)
+
 # We currently only try to generate runtime libraries on x86.
 ifeq ($(ARCH),x86)
 RuntimeLibrary.linux.Configs += \
-	full-i386.a profile-i386.a asan-i386.a
+	full-i386.a profile-i386.a san-i386.a asan-i386.a ubsan-i386.a \
+	ubsan_cxx-i386.a
 endif
+
 ifeq ($(ARCH),x86_64)
 RuntimeLibrary.linux.Configs += \
-	full-x86_64.a profile-x86_64.a asan-x86_64.a tsan-x86_64.a
+	full-x86_64.a profile-x86_64.a san-x86_64.a asan-x86_64.a \
+	tsan-x86_64.a msan-x86_64.a ubsan-x86_64.a ubsan_cxx-x86_64.a
+# We need to build 32-bit ASan/UBsan libraries on 64-bit platform, and add them
+# to the list of runtime libraries to make
+# "clang -fsanitize=(address|undefined) -m32" work.
+# We check that Clang can produce working 32-bit binaries by compiling a simple
+# executable.
+test_source = $(LLVM_SRC_ROOT)/tools/clang/runtime/compiler-rt/clang_linux_test_input.c
+ifeq ($(call TryCompile,$(ToolDir)/clang,$(test_source),-m32),0)
+RuntimeLibrary.linux.Configs += san-i386.a asan-i386.a ubsan-i386.a \
+                                ubsan_cxx-i386.a
+endif
+ifneq ($(LLVM_ANDROID_TOOLCHAIN_DIR),)
+RuntimeLibrary.linux.Configs += asan-arm-android.so
+endif
 endif
 
 endif
@@ -111,6 +138,7 @@ BuildRuntimeLibraries:
 	  ProjSrcRoot=$(COMPILERRT_SRC_ROOT) \
 	  ProjObjRoot=$(PROJ_OBJ_DIR) \
 	  CC="$(ToolDir)/clang" \
+	  LLVM_ANDROID_TOOLCHAIN_DIR="$(LLVM_ANDROID_TOOLCHAIN_DIR)" \
 	  $(RuntimeDirs:%=clang_%)
 .PHONY: BuildRuntimeLibraries
 CleanRuntimeLibraries:

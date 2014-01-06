@@ -32,27 +32,28 @@
 
 #define DEBUG_TYPE "licm"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/Instructions.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Transforms/Utils/SSAUpdater.h"
-#include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/ADT/Statistic.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -90,6 +91,8 @@ namespace {
       AU.addRequired<TargetLibraryInfo>();
     }
 
+    using llvm::Pass::doFinalization;
+
     bool doFinalization() {
       assert(LoopToAliasSetMap.empty() && "Didn't free loop alias sets");
       return false;
@@ -100,7 +103,7 @@ namespace {
     LoopInfo      *LI;       // Current LoopInfo
     DominatorTree *DT;       // Dominator Tree for the current Loop.
 
-    TargetData *TD;          // TargetData for constant folding.
+    DataLayout *TD;          // DataLayout for constant folding.
     TargetLibraryInfo *TLI;  // TargetLibraryInfo for constant folding.
 
     // State that is updated as we process loops.
@@ -207,7 +210,7 @@ bool LICM::runOnLoop(Loop *L, LPPassManager &LPM) {
   AA = &getAnalysis<AliasAnalysis>();
   DT = &getAnalysis<DominatorTree>();
 
-  TD = getAnalysisIfAvailable<TargetData>();
+  TD = getAnalysisIfAvailable<DataLayout>();
   TLI = &getAnalysis<TargetLibraryInfo>();
 
   CurAST = new AliasSetTracker(*AA);
@@ -437,13 +440,12 @@ bool LICM::canSinkOrHoistInst(Instruction &I) {
   }
 
   // Only these instructions are hoistable/sinkable.
-  bool HoistableKind = (isa<BinaryOperator>(I) || isa<CastInst>(I) ||
-                            isa<SelectInst>(I) || isa<GetElementPtrInst>(I) ||
-                            isa<CmpInst>(I)    || isa<InsertElementInst>(I) ||
-                            isa<ExtractElementInst>(I) ||
-                            isa<ShuffleVectorInst>(I));
-  if (!HoistableKind)
-      return false;
+  if (!isa<BinaryOperator>(I) && !isa<CastInst>(I) && !isa<SelectInst>(I) &&
+      !isa<GetElementPtrInst>(I) && !isa<CmpInst>(I) &&
+      !isa<InsertElementInst>(I) && !isa<ExtractElementInst>(I) &&
+      !isa<ShuffleVectorInst>(I) && !isa<ExtractValueInst>(I) &&
+      !isa<InsertValueInst>(I))
+    return false;
 
   return isSafeToExecuteUnconditionally(I);
 }
@@ -663,16 +665,18 @@ namespace {
     AliasSetTracker &AST;
     DebugLoc DL;
     int Alignment;
+    MDNode *TBAATag;
   public:
     LoopPromoter(Value *SP,
                  const SmallVectorImpl<Instruction*> &Insts, SSAUpdater &S,
                  SmallPtrSet<Value*, 4> &PMA,
                  SmallVectorImpl<BasicBlock*> &LEB,
                  SmallVectorImpl<Instruction*> &LIP,
-                 AliasSetTracker &ast, DebugLoc dl, int alignment)
+                 AliasSetTracker &ast, DebugLoc dl, int alignment,
+                 MDNode *TBAATag)
       : LoadAndStorePromoter(Insts, S), SomePtr(SP),
         PointerMustAliases(PMA), LoopExitBlocks(LEB), LoopInsertPts(LIP),
-        AST(ast), DL(dl), Alignment(alignment) {}
+        AST(ast), DL(dl), Alignment(alignment), TBAATag(TBAATag) {}
 
     virtual bool isInstInList(Instruction *I,
                               const SmallVectorImpl<Instruction*> &) const {
@@ -696,6 +700,7 @@ namespace {
         StoreInst *NewSI = new StoreInst(LiveInValue, SomePtr, InsertPos);
         NewSI->setAlignment(Alignment);
         NewSI->setDebugLoc(DL);
+        if (TBAATag) NewSI->setMetadata(LLVMContext::MD_tbaa, TBAATag);
       }
     }
 
@@ -749,10 +754,11 @@ void LICM::PromoteAliasSet(AliasSet &AS,
   // We start with an alignment of one and try to find instructions that allow
   // us to prove better alignment.
   unsigned Alignment = 1;
+  MDNode *TBAATag = 0;
 
   // Check that all of the pointers in the alias set have the same type.  We
   // cannot (yet) promote a memory location that is loaded and stored in
-  // different sizes.
+  // different sizes.  While we are at it, collect alignment and TBAA info.
   for (AliasSet::iterator ASI = AS.begin(), E = AS.end(); ASI != E; ++ASI) {
     Value *ASIV = ASI->getValue();
     PointerMustAliases.insert(ASIV);
@@ -794,8 +800,7 @@ void LICM::PromoteAliasSet(AliasSet &AS,
         // instruction will be executed, update the alignment.
         // Larger is better, with the exception of 0 being the best alignment.
         unsigned InstAlignment = store->getAlignment();
-        if ((InstAlignment > Alignment || InstAlignment == 0)
-            && (Alignment != 0))
+        if ((InstAlignment > Alignment || InstAlignment == 0) && Alignment != 0)
           if (isGuaranteedToExecute(*Use)) {
             GuaranteedToExecute = true;
             Alignment = InstAlignment;
@@ -807,6 +812,15 @@ void LICM::PromoteAliasSet(AliasSet &AS,
       } else
         return; // Not a load or store.
 
+      // Merge the TBAA tags.
+      if (LoopUses.empty()) {
+        // On the first load/store, just take its TBAA tag.
+        TBAATag = Use->getMetadata(LLVMContext::MD_tbaa);
+      } else if (TBAATag) {
+        TBAATag = MDNode::getMostGenericTBAA(TBAATag,
+                                       Use->getMetadata(LLVMContext::MD_tbaa));
+      }
+      
       LoopUses.push_back(Use);
     }
   }
@@ -839,7 +853,7 @@ void LICM::PromoteAliasSet(AliasSet &AS,
   SmallVector<PHINode*, 16> NewPHIs;
   SSAUpdater SSA(&NewPHIs);
   LoopPromoter Promoter(SomePtr, LoopUses, SSA, PointerMustAliases, ExitBlocks,
-                        InsertPts, *CurAST, DL, Alignment);
+                        InsertPts, *CurAST, DL, Alignment, TBAATag);
 
   // Set up the preheader to have a definition of the value.  It is the live-out
   // value from the preheader that uses in the loop will use.
@@ -848,6 +862,7 @@ void LICM::PromoteAliasSet(AliasSet &AS,
                  Preheader->getTerminator());
   PreheaderLoad->setAlignment(Alignment);
   PreheaderLoad->setDebugLoc(DL);
+  if (TBAATag) PreheaderLoad->setMetadata(LLVMContext::MD_tbaa, TBAATag);
   SSA.AddAvailableValue(Preheader, PreheaderLoad);
 
   // Rewrite all the loads in the loop and remember all the definitions from

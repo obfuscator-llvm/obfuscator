@@ -16,11 +16,11 @@
 #ifndef LLVM_CLANG_STATICANALYZER_PATHSENSITIVE_CALL
 #define LLVM_CLANG_STATICANALYZER_PATHSENSITIVE_CALL
 
-#include "clang/Basic/SourceManager.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/Analysis/AnalysisContext.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SVals.h"
 #include "llvm/ADT/PointerIntPair.h"
@@ -162,11 +162,11 @@ protected:
   }
 
 
-  typedef SmallVectorImpl<const MemRegion *> RegionList;
+  typedef SmallVectorImpl<SVal> ValueList;
 
   /// \brief Used to specify non-argument regions that will be invalidated as a
   /// result of this call.
-  virtual void getExtraInvalidatedRegions(RegionList &Regions) const {}
+  virtual void getExtraInvalidatedValues(ValueList &Values) const {}
 
 public:
   virtual ~CallEvent() {}
@@ -181,7 +181,7 @@ public:
   }
 
   /// \brief The state in which the call is being evaluated.
-  ProgramStateRef getState() const {
+  const ProgramStateRef &getState() const {
     return State;
   }
 
@@ -228,6 +228,11 @@ public:
     return false;
   }
 
+  /// \brief Returns true if this is a call to a variadic function or method.
+  virtual bool isVariadic() const {
+    return false;
+  }
+
   /// \brief Returns a source range for the entire call, suitable for
   /// outputting in diagnostics.
   virtual SourceRange getSourceRange() const {
@@ -249,6 +254,12 @@ public:
   /// \brief Returns the result type, adjusted for references.
   QualType getResultType() const;
 
+  /// \brief Returns the return value of the call.
+  ///
+  /// This should only be called if the CallEvent was created using a state in
+  /// which the return value has already been bound to the origin expression.
+  SVal getReturnValue() const;
+
   /// \brief Returns true if any of the arguments appear to represent callbacks.
   bool hasNonZeroCallbackArg() const;
 
@@ -259,6 +270,38 @@ public:
   // but we don't want duplicated lists of known APIs in the short term either.
   virtual bool argumentsMayEscape() const {
     return hasNonZeroCallbackArg();
+  }
+
+  /// \brief Returns true if the callee is an externally-visible function in the
+  /// top-level namespace, such as \c malloc.
+  ///
+  /// You can use this call to determine that a particular function really is
+  /// a library function and not, say, a C++ member function with the same name.
+  ///
+  /// If a name is provided, the function must additionally match the given
+  /// name.
+  ///
+  /// Note that this deliberately excludes C++ library functions in the \c std
+  /// namespace, but will include C library functions accessed through the
+  /// \c std namespace. This also does not check if the function is declared
+  /// as 'extern "C"', or if it uses C++ name mangling.
+  // FIXME: Add a helper for checking namespaces.
+  // FIXME: Move this down to AnyFunctionCall once checkers have more
+  // precise callbacks.
+  bool isGlobalCFunction(StringRef SpecificName = StringRef()) const;
+
+  /// \brief Returns the name of the callee, if its name is a simple identifier.
+  ///
+  /// Note that this will fail for Objective-C methods, blocks, and C++
+  /// overloaded operators. The former is named by a Selector rather than a
+  /// simple identifier, and the latter two do not have names.
+  // FIXME: Move this down to AnyFunctionCall once checkers have more
+  // precise callbacks.
+  const IdentifierInfo *getCalleeIdentifier() const {
+    const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(getDecl());
+    if (!ND)
+      return 0;
+    return ND->getIdentifier();
   }
 
   /// \brief Returns an appropriate ProgramPoint for this call.
@@ -293,7 +336,9 @@ public:
   /// of some kind.
   static bool isCallStmt(const Stmt *S);
 
-  /// \brief Returns the result type of a function, method declaration.
+  /// \brief Returns the result type of a function or method declaration.
+  ///
+  /// This will return a null QualType if the result type cannot be determined.
   static QualType getDeclaredResultType(const Decl *D);
 
   // Iterator access to formal parameters and their types.
@@ -341,8 +386,6 @@ public:
   // For debugging purposes only
   void dump(raw_ostream &Out) const;
   LLVM_ATTRIBUTE_USED void dump() const;
-
-  static bool classof(const CallEvent *) { return true; }
 };
 
 
@@ -378,6 +421,10 @@ public:
     }
 
     return RuntimeDefinition();
+  }
+
+  virtual bool isVariadic() const {
+    return getDecl()->isVariadic();
   }
 
   virtual bool argumentsMayEscape() const;
@@ -457,7 +504,7 @@ protected:
   BlockCall(const BlockCall &Other) : SimpleCall(Other) {}
   virtual void cloneTo(void *Dest) const { new (Dest) BlockCall(*this); }
 
-  virtual void getExtraInvalidatedRegions(RegionList &Regions) const;
+  virtual void getExtraInvalidatedValues(ValueList &Values) const;
 
 public:
   /// \brief Returns the region associated with this instance of the block.
@@ -480,6 +527,10 @@ public:
     return RuntimeDefinition(getBlockDecl());
   }
 
+  virtual bool isVariadic() const {
+    return getBlockDecl()->isVariadic();
+  }
+
   virtual void getInitialStackFrameContents(const StackFrameContext *CalleeCtx,
                                             BindingsTy &Bindings) const;
 
@@ -497,7 +548,7 @@ public:
 /// it is written.
 class CXXInstanceCall : public AnyFunctionCall {
 protected:
-  virtual void getExtraInvalidatedRegions(RegionList &Regions) const;
+  virtual void getExtraInvalidatedValues(ValueList &Values) const;
 
   CXXInstanceCall(const CallExpr *CE, ProgramStateRef St,
                   const LocationContext *LCtx)
@@ -680,7 +731,7 @@ protected:
   CXXConstructorCall(const CXXConstructorCall &Other) : AnyFunctionCall(Other){}
   virtual void cloneTo(void *Dest) const { new (Dest) CXXConstructorCall(*this); }
 
-  virtual void getExtraInvalidatedRegions(RegionList &Regions) const;
+  virtual void getExtraInvalidatedValues(ValueList &Values) const;
 
 public:
   virtual const CXXConstructExpr *getOriginExpr() const {
@@ -779,7 +830,7 @@ protected:
   ObjCMethodCall(const ObjCMethodCall &Other) : CallEvent(Other) {}
   virtual void cloneTo(void *Dest) const { new (Dest) ObjCMethodCall(*this); }
 
-  virtual void getExtraInvalidatedRegions(RegionList &Regions) const;
+  virtual void getExtraInvalidatedValues(ValueList &Values) const;
 
   /// Check if the selector may have multiple definitions (may have overrides).
   virtual bool canBeOverridenInSubclass(ObjCInterfaceDecl *IDecl,
@@ -797,6 +848,9 @@ public:
   }
   virtual const Expr *getArgExpr(unsigned Index) const {
     return getOriginExpr()->getArg(Index);
+  }
+  virtual bool isVariadic() const {
+    return getDecl()->isVariadic();
   }
 
   bool isInstanceMessage() const {
@@ -988,7 +1042,7 @@ namespace llvm {
     typedef const T *SimpleType;
 
     static SimpleType
-    getSimplifiedValue(const clang::ento::CallEventRef<T>& Val) {
+    getSimplifiedValue(clang::ento::CallEventRef<T> Val) {
       return Val.getPtr();
     }
   };

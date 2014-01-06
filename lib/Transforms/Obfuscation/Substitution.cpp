@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Obfuscation/Substitution.h"
-#include "llvm/LLVMContext.h"
+#include "llvm/IR/LLVMContext.h"
 
 #define DEBUG_TYPE "substitution"
  

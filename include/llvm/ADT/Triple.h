@@ -43,8 +43,8 @@ public:
   enum ArchType {
     UnknownArch,
 
-    arm,     // ARM; arm, armv.*, xscale
-    cellspu, // CellSPU: spu, cellspu
+    arm,     // ARM: arm, armv.*, xscale
+    aarch64, // AArch64: aarch64
     hexagon, // Hexagon: hexagon
     mips,    // MIPS: mips, mipsallegrex
     mipsel,  // MIPSEL: mipsel, mipsallegrexel
@@ -56,6 +56,7 @@ public:
     r600,    // R600: AMD GPUs HD2XXX - HD6XXX
     sparc,   // Sparc: sparc
     sparcv9, // Sparcv9: Sparcv9
+    systemz, // SystemZ: s390x
     tce,     // TCE (http://tce.cs.tut.fi/): tce
     thumb,   // Thumb: thumb, thumbv.*
     x86,     // X86: i[3-9]86
@@ -64,11 +65,10 @@ public:
     mblaze,  // MBlaze: mblaze
     nvptx,   // NVPTX: 32-bit
     nvptx64, // NVPTX: 64-bit
-    gpu_32,  // OpenCL generic GPU: (32-bit)
-    gpu_64,  // OpenCL generic GPU: (64-bit)
     le32,    // le32: generic little-endian 32-bit CPU (PNaCl / Emscripten)
     amdil,   // amdil: amd IL
-    spir     // SPIR: standard portable IR for OpenCL
+    spir,    // SPIR: standard portable IR for OpenCL 32-bit version
+    spir64   // SPIR: standard portable IR for OpenCL 64-bit version
   };
   enum VendorType {
     UnknownVendor,
@@ -78,7 +78,8 @@ public:
     SCEI,
     BGP,
     BGQ,
-    Freescale
+    Freescale,
+    IBM
   };
   enum OSType {
     UnknownOS,
@@ -101,9 +102,10 @@ public:
     Haiku,
     Minix,
     RTEMS,
-    NativeClient,
-    CNK,         // BG/P Compute-Node Kernel
-    Bitrig
+    NaCl,       // Native Client
+    CNK,        // BG/P Compute-Node Kernel
+    Bitrig,
+    AIX
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -111,9 +113,11 @@ public:
     GNU,
     GNUEABI,
     GNUEABIHF,
+    GNUX32,
     EABI,
     MachO,
-    Android
+    Android,
+    ELF
   };
 
 private:
@@ -294,9 +298,14 @@ public:
     return getOS() == Triple::Darwin || getOS() == Triple::MacOSX;
   }
 
+  /// Is this an iOS triple.
+  bool isiOS() const {
+    return getOS() == Triple::IOS;
+  }
+
   /// isOSDarwin - Is this a "Darwin" OS (OS X or iOS).
   bool isOSDarwin() const {
-    return isMacOSX() || getOS() == Triple::IOS;
+    return isMacOSX() || isiOS();
   }
 
   /// \brief Tests for either Cygwin or MinGW OS
@@ -307,6 +316,11 @@ public:
   /// isOSWindows - Is this a "Windows" OS.
   bool isOSWindows() const {
     return getOS() == Triple::Win32 || isOSCygMing();
+  }
+
+  /// \brief Tests whether the OS is NaCl (Native Client)
+  bool isOSNaCl() const {
+    return getOS() == Triple::NaCl;
   }
 
   /// \brief Tests whether the OS uses the ELF binary format.
@@ -424,11 +438,6 @@ public:
   /// getArchTypeForLLVMName - The canonical type for the given LLVM
   /// architecture name (e.g., "x86").
   static ArchType getArchTypeForLLVMName(StringRef Str);
-
-  /// getArchTypeForDarwinArchName - Get the architecture type for a "Darwin"
-  /// architecture name, for example as accepted by "gcc -arch" (see also
-  /// arch(3)).
-  static ArchType getArchTypeForDarwinArchName(StringRef Str);
 
   /// @}
 };

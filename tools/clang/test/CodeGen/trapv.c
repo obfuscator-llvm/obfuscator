@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -triple x86_64-apple-darwin10 -ftrapv %s -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fcatch-undefined-behavior %s -emit-llvm -o - | FileCheck %s
 
 unsigned int ui, uj, uk;
 int i, j, k;
@@ -50,4 +49,13 @@ void test2() {
   // CHECK-NEXT: [[T5:%.*]] = xor i1 [[T4]], true
   // CHECK-NEXT: br i1 [[T5]]
   // CHECK:      call void @llvm.trap()
+}
+
+// CHECK: define void @test3(
+void test3(int a, int b, float c, float d) {
+  // CHECK-NOT:  @llvm.trap
+  (void)(a / b);
+  (void)(a % b);
+  (void)(c / d);
+  // CHECK: }
 }

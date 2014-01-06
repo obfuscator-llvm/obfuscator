@@ -102,7 +102,7 @@ void testRetroactiveNullReference(int *x) {
   // "null reference". So the 'if' statement ought to be dead code.
   // However, Clang (and other compilers) don't actually check that a pointer
   // value is non-null in the implementation of references, so it is possible
-  // to produce a supposed "null reference" at runtime. The analyzer shoeuld
+  // to produce a supposed "null reference" at runtime. The analyzer should
   // still warn when it can prove such errors.
   int &y = *x;
   if (x != 0)
@@ -135,21 +135,102 @@ void testFunctionPointerReturn(void *opaque) {
   clang_analyzer_eval(x == 42); // expected-warning{{TRUE}}
 }
 
+int &testReturnNullReference() {
+  int *x = 0;
+  return *x; // expected-warning{{Returning null reference}}
+}
 
-// ------------------------------------
-// False negatives
-// ------------------------------------
+char &refFromPointer() {
+  return *ptr();
+}
+
+void testReturnReference() {
+  clang_analyzer_eval(ptr() == 0); // expected-warning{{UNKNOWN}}
+  clang_analyzer_eval(&refFromPointer() == 0); // expected-warning{{FALSE}}
+}
+
+void intRefParam(int &r) {
+	;
+}
+
+void test(int *ptr) {
+	clang_analyzer_eval(ptr == 0); // expected-warning{{UNKNOWN}}
+
+	extern void use(int &ref);
+	use(*ptr);
+
+	clang_analyzer_eval(ptr == 0); // expected-warning{{FALSE}}
+}
+
+void testIntRefParam() {
+	int i = 0;
+	intRefParam(i); // no-warning
+}
+
+int refParam(int &byteIndex) {
+	return byteIndex;
+}
+
+void testRefParam(int *p) {
+	if (p)
+		;
+	refParam(*p); // expected-warning {{Forming reference to null pointer}}
+}
+
+int ptrRefParam(int *&byteIndex) {
+	return *byteIndex;  // expected-warning {{Dereference of null pointer}}
+}
+void testRefParam2() {
+	int *p = 0;
+	int *&rp = p;
+	ptrRefParam(rp);
+}
+
+int *maybeNull() {
+	extern bool coin();
+	static int x;
+	return coin() ? &x : 0;
+}
+
+void use(int &x) {
+	x = 1; // no-warning
+}
+
+void testSuppression() {
+	use(*maybeNull());
+}
 
 namespace rdar11212286 {
   class B{};
 
   B test() {
     B *x = 0;
-    return *x; // should warn here!
+    return *x; // expected-warning {{Forming reference to null pointer}}
   }
 
-  B &testRef() {
-    B *x = 0;
-    return *x; // should warn here!
+  B testif(B *x) {
+    if (x)
+      ;
+    return *x; // expected-warning {{Forming reference to null pointer}}
   }
+
+  void idc(B *x) {
+    if (x)
+      ;
+  }
+
+  B testidc(B *x) {
+    idc(x);
+    return *x; // no-warning
+  }
+}
+
+namespace PR15694 {
+  class C {
+    bool bit : 1;
+    template <class T> void bar(const T &obj) {}
+    void foo() {
+      bar(bit); // don't crash
+    }
+  };
 }

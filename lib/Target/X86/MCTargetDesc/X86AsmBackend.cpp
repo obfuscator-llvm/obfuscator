@@ -113,7 +113,7 @@ public:
 
   bool fixupNeedsRelaxation(const MCFixup &Fixup,
                             uint64_t Value,
-                            const MCInstFragment *DF,
+                            const MCRelaxableFragment *DF,
                             const MCAsmLayout &Layout) const;
 
   void relaxInstruction(const MCInst &Inst, MCInst &Res) const;
@@ -255,7 +255,7 @@ bool X86AsmBackend::mayNeedRelaxation(const MCInst &Inst) const {
 
 bool X86AsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup,
                                          uint64_t Value,
-                                         const MCInstFragment *DF,
+                                         const MCRelaxableFragment *DF,
                                          const MCAsmLayout &Layout) const {
   // Relax if the value is too big for a (signed) i8.
   return int64_t(Value) != int64_t(int8_t(Value));
@@ -279,9 +279,9 @@ void X86AsmBackend::relaxInstruction(const MCInst &Inst, MCInst &Res) const {
   Res.setOpcode(RelaxedOp);
 }
 
-/// writeNopData - Write optimal nops to the output file for the \p Count
-/// bytes.  This returns the number of bytes written.  It may return 0 if
-/// the \p Count is more than the maximum optimal nops.
+/// \brief Write a sequence of optimal nops to the output, covering \p Count
+/// bytes.
+/// \return - true on success, false on failure
 bool X86AsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
   static const uint8_t Nops[10][10] = {
     // nop
@@ -307,24 +307,26 @@ bool X86AsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
   };
 
   // This CPU doesnt support long nops. If needed add more.
-  if (CPU == "geode") {
+  // FIXME: Can we get this from the subtarget somehow?
+  if (CPU == "generic" || CPU == "i386" || CPU == "i486" || CPU == "i586" ||
+      CPU == "pentium" || CPU == "pentium-mmx" || CPU == "geode") {
     for (uint64_t i = 0; i < Count; ++i)
       OW->Write8(0x90);
     return true;
   }
 
-  // Write an optimal sequence for the first 15 bytes.
-  const uint64_t OptimalCount = (Count < 16) ? Count : 15;
-  const uint64_t Prefixes = OptimalCount <= 10 ? 0 : OptimalCount - 10;
-  for (uint64_t i = 0, e = Prefixes; i != e; i++)
-    OW->Write8(0x66);
-  const uint64_t Rest = OptimalCount - Prefixes;
-  for (uint64_t i = 0, e = Rest; i != e; i++)
-    OW->Write8(Nops[Rest - 1][i]);
-
-  // Finish with single byte nops.
-  for (uint64_t i = OptimalCount, e = Count; i != e; ++i)
-   OW->Write8(0x90);
+  // 15 is the longest single nop instruction.  Emit as many 15-byte nops as
+  // needed, then emit a nop of the remaining length.
+  do {
+    const uint8_t ThisNopLength = (uint8_t) std::min(Count, (uint64_t) 15);
+    const uint8_t Prefixes = ThisNopLength <= 10 ? 0 : ThisNopLength - 10;
+    for (uint8_t i = 0; i < Prefixes; i++)
+      OW->Write8(0x66);
+    const uint8_t Rest = ThisNopLength - Prefixes;
+    for (uint8_t i = 0; i < Rest; i++)
+      OW->Write8(Nops[Rest - 1][i]);
+    Count -= ThisNopLength;
+  } while (Count != 0);
 
   return true;
 }
@@ -352,7 +354,7 @@ public:
     : ELFX86AsmBackend(T, OSABI, CPU) {}
 
   MCObjectWriter *createObjectWriter(raw_ostream &OS) const {
-    return createX86ELFObjectWriter(OS, /*Is64Bit*/ false, OSABI);
+    return createX86ELFObjectWriter(OS, /*IsELF64*/ false, OSABI, ELF::EM_386);
   }
 };
 
@@ -362,7 +364,7 @@ public:
     : ELFX86AsmBackend(T, OSABI, CPU) {}
 
   MCObjectWriter *createObjectWriter(raw_ostream &OS) const {
-    return createX86ELFObjectWriter(OS, /*Is64Bit*/ true, OSABI);
+    return createX86ELFObjectWriter(OS, /*IsELF64*/ true, OSABI, ELF::EM_X86_64);
   }
 };
 
@@ -453,7 +455,7 @@ MCAsmBackend *llvm::createX86_32AsmBackend(const Target &T, StringRef TT, String
   if (TheTriple.isOSDarwin() || TheTriple.getEnvironment() == Triple::MachO)
     return new DarwinX86_32AsmBackend(T, CPU);
 
-  if (TheTriple.isOSWindows())
+  if (TheTriple.isOSWindows() && TheTriple.getEnvironment() != Triple::ELF)
     return new WindowsX86AsmBackend(T, false, CPU);
 
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TheTriple.getOS());
@@ -466,7 +468,7 @@ MCAsmBackend *llvm::createX86_64AsmBackend(const Target &T, StringRef TT, String
   if (TheTriple.isOSDarwin() || TheTriple.getEnvironment() == Triple::MachO)
     return new DarwinX86_64AsmBackend(T, CPU);
 
-  if (TheTriple.isOSWindows())
+  if (TheTriple.isOSWindows() && TheTriple.getEnvironment() != Triple::ELF)
     return new WindowsX86AsmBackend(T, true, CPU);
 
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TheTriple.getOS());
