@@ -30,18 +30,24 @@
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/PrngAESCtr.h"
 
+
 using namespace llvm;
 
 static cl::opt<bool>
-RunLoopVectorization("vectorize-loops",
+RunLoopVectorization("vectorize-loops", cl::Hidden,
                      cl::desc("Run the Loop vectorization passes"));
 
 static cl::opt<bool>
-RunSLPVectorization("vectorize-slp",
+LateVectorization("late-vectorize", cl::init(true), cl::Hidden,
+                  cl::desc("Run the vectorization pasess late in the pass "
+                           "pipeline (after the inliner)"));
+
+static cl::opt<bool>
+RunSLPVectorization("vectorize-slp", cl::Hidden,
                     cl::desc("Run the SLP vectorization passes"));
 
 static cl::opt<bool>
-RunBBVectorization("vectorize-slp-aggressive",
+RunBBVectorization("vectorize-slp-aggressive", cl::Hidden,
                     cl::desc("Run the BB vectorization passes"));
 
 static cl::opt<bool>
@@ -52,6 +58,10 @@ UseGVNAfterVectorization("use-gvn-after-vectorization",
 static cl::opt<bool> UseNewSROA("use-new-sroa",
   cl::init(true), cl::Hidden,
   cl::desc("Enable the new, experimental SROA pass"));
+
+static cl::opt<bool>
+RunLoopRerolling("reroll-loops", cl::Hidden,
+                 cl::desc("Run the loop rerolling pass"));
 
 // Flags for obfuscation
 static cl::opt<bool>
@@ -72,18 +82,20 @@ PassManagerBuilder::PassManagerBuilder() {
     SizeLevel = 0;
     LibraryInfo = 0;
     Inliner = 0;
-    DisableSimplifyLibCalls = false;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
     BBVectorize = RunBBVectorization;
     SLPVectorize = RunSLPVectorization;
     LoopVectorize = RunLoopVectorization;
+    LateVectorize = LateVectorization;
+    RerollLoops = RunLoopRerolling;
 
     // Initialization of the global cryptographically
     // secure pseudo-random generator
     if(!AesSeed.empty()) {
         llvm::cprng->prng_seed (AesSeed.c_str());
     }
+
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -125,19 +137,19 @@ PassManagerBuilder::addInitialAliasAnalysisPasses(PassManagerBase &PM) const {
 }
 
 void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
-    addExtensionsToPM(EP_EarlyAsPossible, FPM);
+  addExtensionsToPM(EP_EarlyAsPossible, FPM);
 
-    // Bogus control flow
-    if(BogusControlFlow) FPM.add(createBogus());
-    
-    // Flattening
-    //
-    // Although a function pass, we call it at the very latest moment since it
-    // seems to break things for optimization and analysis passes.
-    if(Flattening) {
-        FPM.add(createLowerSwitchPass());
-        FPM.add(createFlattening());
-    }
+  // Bogus control flow
+  if(BogusControlFlow) FPM.add(createBogus());
+  
+  // Flattening
+  //
+  // Although a function pass, we call it at the very latest moment since it
+  // seems to break things for optimization and analysis passes.
+  if(Flattening) {
+    FPM.add(createLowerSwitchPass());
+    FPM.add(createFlattening());
+  }
 
 
   // Add LibraryInfo if we have some.
@@ -215,8 +227,6 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
   MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
-  if (!DisableSimplifyLibCalls)
-    MPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
   MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
@@ -233,8 +243,8 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
-  if (LoopVectorize && OptLevel > 2)
-    MPM.add(createLoopVectorizePass());
+  if (!LateVectorize && LoopVectorize)
+      MPM.add(createLoopVectorizePass(DisableUnrollLoops));
 
   if (!DisableUnrollLoops)
     MPM.add(createLoopUnrollPass());          // Unroll small loops
@@ -254,16 +264,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
+  if (RerollLoops)
+    MPM.add(createLoopRerollPass());
   if (SLPVectorize)
-    MPM.add(createSLPVectorizerPass());     // Vectorize parallel scalar chains.
+    MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
 
   if (BBVectorize) {
     MPM.add(createBBVectorizePass());
     MPM.add(createInstructionCombiningPass());
     if (OptLevel > 1 && UseGVNAfterVectorization)
-      MPM.add(createGVNPass());                   // Remove redundancies
+      MPM.add(createGVNPass());           // Remove redundancies
     else
-      MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+      MPM.add(createEarlyCSEPass());      // Catch trivial redundancies
 
     // BBVectorize may have significantly shortened a loop body; unroll again.
     if (!DisableUnrollLoops)
@@ -271,8 +283,24 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   }
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
-  MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
+  MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
   MPM.add(createInstructionCombiningPass());  // Clean up after everything.
+
+  // As an experimental mode, run any vectorization passes in a separate
+  // pipeline from the CGSCC pass manager that runs iteratively with the
+  // inliner.
+  if (LateVectorize && LoopVectorize) {
+    // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
+    // pass manager that we are specifically trying to avoid. To prevent this
+    // we must insert a no-op module pass to reset the pass manager.
+    MPM.add(createBarrierNoopPass());
+
+    // Add the various vectorization passes and relevant cleanup passes for
+    // them since we are no longer in the middle of the main scalar pipeline.
+    MPM.add(createLoopVectorizePass(DisableUnrollLoops));
+    MPM.add(createInstructionCombiningPass());
+    MPM.add(createCFGSimplificationPass());
+  }
 
   if (!DisableUnitAtATime) {
     // FIXME: We shouldn't bother with this anymore.
@@ -302,11 +330,8 @@ void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
   // Now that composite has been compiled, scan through the module, looking
   // for a main function.  If main is defined, mark all other functions
   // internal.
-  if (Internalize) {
-    std::vector<const char*> E;
-    E.push_back("main");
-    PM.add(createInternalizePass(E));
-  }
+  if (Internalize)
+    PM.add(createInternalizePass("main"));
 
   // Propagate constants at call sites into the functions they call.  This
   // opens opportunities for globalopt (and inlining) by substituting function
@@ -347,6 +372,7 @@ void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
   // The IPO passes may leave cruft around.  Clean up after them.
   PM.add(createInstructionCombiningPass());
   PM.add(createJumpThreadingPass());
+
   // Break up allocas
   if (UseNewSROA)
     PM.add(createSROAPass());
@@ -360,6 +386,7 @@ void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
   PM.add(createLICMPass());                 // Hoist loop invariants.
   PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
   PM.add(createMemCpyOptPass());            // Remove dead memcpys.
+
   // Nuke dead stores.
   PM.add(createDeadStoreEliminationPass());
 
@@ -424,8 +451,7 @@ LLVMPassManagerBuilderSetDisableUnrollLoops(LLVMPassManagerBuilderRef PMB,
 void
 LLVMPassManagerBuilderSetDisableSimplifyLibCalls(LLVMPassManagerBuilderRef PMB,
                                                  LLVMBool Value) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->DisableSimplifyLibCalls = Value;
+  // NOTE: The simplify-libcalls pass has been removed.
 }
 
 void

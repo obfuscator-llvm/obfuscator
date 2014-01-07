@@ -1,4 +1,11 @@
-import os, sys
+import errno
+import itertools
+import math
+import os
+import platform
+import signal
+import subprocess
+import sys
 
 def detectCPUs():
     """
@@ -6,7 +13,7 @@ def detectCPUs():
     """
     # Linux, Unix and MacOS:
     if hasattr(os, "sysconf"):
-        if os.sysconf_names.has_key("SC_NPROCESSORS_ONLN"):
+        if "SC_NPROCESSORS_ONLN" in os.sysconf_names:
             # Linux & Unix:
             ncpus = os.sysconf("SC_NPROCESSORS_ONLN")
             if isinstance(ncpus, int) and ncpus > 0:
@@ -14,7 +21,7 @@ def detectCPUs():
         else: # OSX:
             return int(capture(['sysctl', '-n', 'hw.ncpu']))
     # Windows:
-    if os.environ.has_key("NUMBER_OF_PROCESSORS"):
+    if "NUMBER_OF_PROCESSORS" in os.environ:
         ncpus = int(os.environ["NUMBER_OF_PROCESSORS"])
         if ncpus > 0:
             return ncpus
@@ -23,8 +30,6 @@ def detectCPUs():
 def mkdir_p(path):
     """mkdir_p(path) - Make the "path" directory, if it does not exist; this
     will also make directories for any missing parent directories."""
-    import errno
-
     if not path or os.path.exists(path):
         return
 
@@ -34,13 +39,13 @@ def mkdir_p(path):
 
     try:
         os.mkdir(path)
-    except OSError,e:
+    except OSError:
+        e = sys.exc_info()[1]
         # Ignore EEXIST, which may occur during a race condition.
         if e.errno != errno.EEXIST:
             raise
 
 def capture(args, env=None):
-    import subprocess
     """capture(command) - Run the given command (or argv list) in a shell and
     return the standard output."""
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -92,9 +97,7 @@ def whichTools(tools, paths):
     return None
 
 def printHistogram(items, title = 'Items'):
-    import itertools, math
-
-    items.sort(key = lambda (_,v): v)
+    items.sort(key = lambda item: item[1])
 
     maxValue = max([v for _,v in items])
 
@@ -115,27 +118,52 @@ def printHistogram(items, title = 'Items'):
 
     barW = 40
     hr = '-' * (barW + 34)
-    print '\nSlowest %s:' % title
-    print hr
+    print('\nSlowest %s:' % title)
+    print(hr)
     for name,value in items[-20:]:
-        print '%.2fs: %s' % (value, name)
-    print '\n%s Times:' % title
-    print hr
+        print('%.2fs: %s' % (value, name))
+    print('\n%s Times:' % title)
+    print(hr)
     pDigits = int(math.ceil(math.log(maxValue, 10)))
     pfDigits = max(0, 3-pDigits)
     if pfDigits:
         pDigits += pfDigits + 1
     cDigits = int(math.ceil(math.log(len(items), 10)))
-    print "[%s] :: [%s] :: [%s]" % ('Range'.center((pDigits+1)*2 + 3),
+    print("[%s] :: [%s] :: [%s]" % ('Range'.center((pDigits+1)*2 + 3),
                                     'Percentage'.center(barW),
-                                    'Count'.center(cDigits*2 + 1))
-    print hr
+                                    'Count'.center(cDigits*2 + 1)))
+    print(hr)
     for i,row in enumerate(histo):
         pct = float(len(row)) / len(items)
         w = int(barW * pct)
-        print "[%*.*fs,%*.*fs)" % (pDigits, pfDigits, i*barH,
-                                   pDigits, pfDigits, (i+1)*barH),
-        print ":: [%s%s] :: [%*d/%*d]" % ('*'*w, ' '*(barW-w),
-                                          cDigits, len(row),
-                                          cDigits, len(items))
+        print("[%*.*fs,%*.*fs) :: [%s%s] :: [%*d/%*d]" % (
+            pDigits, pfDigits, i*barH, pDigits, pfDigits, (i+1)*barH,
+            '*'*w, ' '*(barW-w), cDigits, len(row), cDigits, len(items)))
 
+# Close extra file handles on UNIX (on Windows this cannot be done while
+# also redirecting input).
+kUseCloseFDs = not (platform.system() == 'Windows')
+def executeCommand(command, cwd=None, env=None):
+    p = subprocess.Popen(command, cwd=cwd,
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         env=env, close_fds=kUseCloseFDs)
+    out,err = p.communicate()
+    exitCode = p.wait()
+
+    # Detect Ctrl-C in subprocess.
+    if exitCode == -signal.SIGINT:
+        raise KeyboardInterrupt
+
+    # Ensure the resulting output is always of string type.
+    try:
+        out = str(out.decode('ascii'))
+    except:
+        out = str(out)
+    try:
+        err = str(err.decode('ascii'))
+    except:
+        err = str(err)
+
+    return out, err, exitCode

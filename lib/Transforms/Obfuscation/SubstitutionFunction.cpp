@@ -1,4 +1,6 @@
 #include "llvm/Transforms/Obfuscation/Substitution.h"
+#include "llvm/IR/Constants.h"
+
 
 // Implementation of a = b - (-c)
 void addNeg(BinaryOperator *bo) {
