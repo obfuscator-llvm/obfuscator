@@ -747,8 +747,11 @@ void PrngAESCtr::populate_pool () {
 }
 
 void PrngAESCtr::prng_seed () {
-
+#if defined(__linux__)    
+    std::ifstream devrandom ("/dev/urandom");
+#else 
     std::ifstream devrandom ("/dev/random");
+#endif
     LLVMContext &ctx = llvm::getGlobalContext();
     
     if (devrandom) {
