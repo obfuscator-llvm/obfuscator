@@ -35,6 +35,7 @@ compile_commands.json
 # External projects that are tracked independently.
 projects/*
 !projects/sample
+!projects/compiler-rt
 !projects/CMakeLists.txt
 !projects/Makefile
 # LLDB, which is tracked independently.
