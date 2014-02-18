@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #ifndef _FLATTENING_INCLUDES_
-#define _FLATTENINF_INCLUDES_
+#define _FLATTENING_INCLUDES_
 
 
 // LLVM include
