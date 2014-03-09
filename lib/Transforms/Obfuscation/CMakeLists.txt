@@ -5,6 +5,8 @@ add_llvm_library(LLVMObfuscation
   Substitution.cpp
   SubstitutionFunction.cpp
   BogusControlFlow.cpp
+  AbsractStringEncryptionPass.cpp
+  XorStringEncryption.cpp
   )
 
 add_dependencies(LLVMObfuscation intrinsics_gen)
