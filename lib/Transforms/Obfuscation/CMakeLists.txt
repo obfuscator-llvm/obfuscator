@@ -2,8 +2,8 @@ add_llvm_library(LLVMObfuscation
   CryptoUtils.cpp
   Substitution.cpp
   BogusControlFlow.cpp
-  Utils.cpp
-  SplitBasicBlocks.cpp
+  AbsractStringEncryptionPass.cpp
+  XorStringEncryption.cpp
   Flattening.cpp
   )
 
