@@ -764,18 +764,25 @@ void PrngAESCtr::prng_seed () {
         }
 
         devrandom.close();
-        DEBUG_WITH_TYPE ("cprng", dbgs() << "CPNRG seeded with /dev/random");
-
-        memset(ctr, 0, 16);
-        
-        // Once the seed is there, we compute the
-        // AES128 key-schedule
-        aes_compute_ks(ks, key);
-        
-        seeded = true;
+        DEBUG_WITH_TYPE ("cprng", dbgs() << "CPRNG seeded with /dev/random");
+ 
     } else {
-        ctx.emitError (Twine ("Cannot open /dev/random"));
+    	srand((unsigned int)__rdtsc());
+    	uint8_t tempKey[16];
+		
+		for (int i = 0; i < 16; i++)
+			tempKey[i] = rand() % 255;
+		memcpy(key, tempKey, 16);
+		DEBUG_WITH_TYPE("cprng", dbgs() << "CPRNG seeded with rand()");
     }
+
+    memset(ctr, 0, 16);
+
+    // Once the seed is there, we compute the
+	// AES128 key-schedule
+	aes_compute_ks(ks, key);
+
+	seeded = true;
 }
 
 void PrngAESCtr::inc_ctr() {
