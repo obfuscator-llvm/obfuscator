@@ -868,7 +868,7 @@ def mios_version_min_EQ : Joined<["-"], "mios-version-min=">, Alias<miphoneos_ve
 def mios_simulator_version_min_EQ : Joined<["-"], "mios-simulator-version-min=">, Group<m_Group>;
 def mkernel : Flag<["-"], "mkernel">, Group<m_Group>;
 def mlinker_version_EQ : Joined<["-"], "mlinker-version=">, Flags<[NoForward]>;
-def mllvm : Separate<["-"], "mllvm">, Flags<[CC1Option]>,
+def mllvm : Separate<["-"], "mllvm">, Flags<[DriverOption,CC1Option]>,
   HelpText<"Additional arguments to forward to LLVM's option processing">;
 def mmacosx_version_min_EQ : Joined<["-"], "mmacosx-version-min=">, Group<m_Group>;
 def mms_bitfields : Flag<["-"], "mms-bitfields">, Group<m_Group>, Flags<[CC1Option]>,
