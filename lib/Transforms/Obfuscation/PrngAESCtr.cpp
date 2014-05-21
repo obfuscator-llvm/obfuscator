@@ -32,6 +32,11 @@
 #include <cstring>
 #include <cstdio>
 
+#if defined(_WIN32)
+   #include <windows.h>
+   #include <wincrypt.h>
+#endif
+
 // Stats
 STATISTIC(statsGetBytes,  "a. Number of calls to get_bytes ()");
 STATISTIC(statsGetChar,   "b. Number of calls to get_char ()");
@@ -747,35 +752,51 @@ void PrngAESCtr::populate_pool () {
 }
 
 void PrngAESCtr::prng_seed () {
-#if defined(__linux__)
-    std::ifstream devrandom ("/dev/urandom");
+
+  LLVMContext &ctx = llvm::getGlobalContext();
+
+#if defined(_WIN32)
+       HCRYPTPROV hProvider = 0;
+
+       if (!::CryptAcquireContextW(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+               ctx.emitError(Twine("Cannot acquire cryptographic context"));
+       }
+               
+       if (!::CryptGenRandom(hProvider, 16, (unsigned char*)key))
+       {
+               ::CryptReleaseContext(hProvider, 0);
+               ctx.emitError(Twine("Cannot generate random"));
+       }
+
+       if (!::CryptReleaseContext(hProvider, 0)) {
+               ctx.emitError(Twine("Cannot release cryptographic context"));
+       }
+       
+       DEBUG_WITH_TYPE("cprng", dbgs() << "CPNRG seeded with Windows cryptographic API");
 #else
-    std::ifstream devrandom ("/dev/random");
-#endif 
-    
-    LLVMContext &ctx = llvm::getGlobalContext();
-    
+    std::ifstream devrandom ("/dev/urandom");
+
     if (devrandom) {
         
         devrandom.read (key, 16);
         
         if (devrandom.gcount() != 16) {
-            ctx.emitError ( Twine("Cannot read enough bytes in /dev/random"));
+            ctx.emitError ( Twine("Cannot read enough bytes in /dev/urandom"));
         }
 
         devrandom.close();
-        DEBUG_WITH_TYPE ("cprng", dbgs() << "CPNRG seeded with /dev/random");
-
-        memset(ctr, 0, 16);
-        
-        // Once the seed is there, we compute the
-        // AES128 key-schedule
-        aes_compute_ks(ks, key);
-        
-        seeded = true;
     } else {
-        ctx.emitError (Twine ("Cannot open /dev/random"));
+        ctx.emitError (Twine ("Cannot open /dev/urandom"));
     }
+#endif
+
+    memset(ctr, 0, 16);
+    
+    // Once the seed is there, we compute the
+    // AES128 key-schedule
+    aes_compute_ks(ks, key);
+
+    seeded = true;
 }
 
 void PrngAESCtr::inc_ctr() {
