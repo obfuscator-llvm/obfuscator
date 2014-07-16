@@ -15,8 +15,6 @@
 
 using namespace llvm;
 
-//NOTE : the global dce pass must be called after this pass to clean up all the useless load to clear string...
-
 AbstractStringEncryptionPass::AbstractStringEncryptionPass(char ID) : ModulePass(ID) {
     
 }
@@ -28,6 +26,7 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
     
     StringMapGlobalVars.clear();
     std::vector<GlobalVariable*> StringGlobalVars;
+    std::vector<GlobalVariable*> StringGlobalVarsToDelete;
     
     //-----------------
     //get strings
@@ -73,9 +72,9 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
         StringMapGlobalVars[oss.str()] = gCryptedStr;
         
         //replace use of clear string with encrypted string
-        //the globaldce pass should be called after this pass to clean up all the unused clear string.
         GV->replaceAllUsesWith(gCryptedStr);
-                
+        //need to remove clear text global
+        StringGlobalVarsToDelete.push_back(GV);
         changed = true;
     }
     
@@ -103,6 +102,13 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
             }
         }
     }
+    
+    //remove all clear text global variable
+    for(std::vector<GlobalVariable*>::iterator it = StringGlobalVarsToDelete.begin(); it != StringGlobalVarsToDelete.end(); ++it){
+        GlobalVariable* GV = *it;
+        GV->eraseFromParent();
+    }
+    
     //M.dump();
     return changed;
 }
@@ -140,7 +146,6 @@ void AbstractStringEncryptionPass::handleLoad(Module &M, LoadInst* Load) {
             Value* decryptedStr = stringDecryption(M, newload, size, Load);
             //replace current load with the decryption code
             Load->replaceAllUsesWith(decryptedStr);
-            //note : the dce pass must be called after this pass to clean up all the useless load to clear string.
         }
     } 
 }
