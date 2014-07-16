@@ -25,9 +25,11 @@ namespace llvm {
 			/** Decryption method, called every time a encrypted string is used.
 			 * Should generate the llvm IR to decrypt the string
 			 * \param M module
-			 * \param LoadEncryptedString load instruction (load pointer to the encrypted string)
+			 * \param EncryptedString encrypted string value
+			 * \param Size size of encrypted string
+			 * \param Parent parent instruction
 			 * \return value that will replace the load to the encrypted string */		
-			virtual llvm::Value* stringDecryption(llvm::Module &M, llvm::LoadInst* LoadEncryptedString, const uint64_t Size);
+			virtual llvm::Value* stringDecryption(llvm::Module &M, llvm::Value* EncryptedString, const uint64_t Size, llvm::Instruction* Parent);
 		
 		private:
 			/** generate random key */

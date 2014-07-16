@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <sstream>
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -42,22 +41,30 @@ std::string XorStringEncryption::stringEncryption(const std::string& str_) {
     return encstr;
 }
 
-llvm::Value* XorStringEncryption::stringDecryption(Module &M, llvm::LoadInst* LoadEncryptedString, const uint64_t Size) {
-    //create a load to the
-    LoadInst* newload = new LoadInst(((LoadInst*)LoadEncryptedString)->getPointerOperand(), "", false, 8, LoadEncryptedString);
+llvm::Value* XorStringEncryption::stringDecryption(llvm::Module &M, llvm::Value* encryptedString, const uint64_t Size, llvm::Instruction* parent) {
     //allocate a new string
-    AllocaInst* alloca = new AllocaInst(IntegerType::getInt8Ty(M.getContext()), ConstantInt::get(IntegerType::getInt64Ty(M.getContext()), Size), "", LoadEncryptedString);
+    AllocaInst* alloca = new AllocaInst(IntegerType::getInt8Ty(M.getContext()), ConstantInt::get(IntegerType::getInt64Ty(M.getContext()), Size), "", parent);
 
     for(uint64_t i = 0; i < Size; i++){                               
-        std::vector<Value*> idxlist;
+        std::vector<Value*> idxlist;        
         idxlist.push_back(ConstantInt::get(IntegerType::getInt64Ty(M.getContext()), i));
-        GetElementPtrInst* srcPtr = GetElementPtrInst::Create(newload, ArrayRef<Value*>(idxlist), "", LoadEncryptedString);
-        GetElementPtrInst* destPtr = GetElementPtrInst::Create(alloca, ArrayRef<Value*>(idxlist), "", LoadEncryptedString);
-        LoadInst* srcload = new LoadInst(srcPtr, "", false, 8, LoadEncryptedString);
-        BinaryOperator* clearChar = BinaryOperator::CreateXor(srcload, ConstantInt::get(IntegerType::getInt8Ty(M.getContext()), _key[i%_key.size()]), "", LoadEncryptedString);
-        new StoreInst(clearChar, destPtr, false, 8, LoadEncryptedString);                                                        
+        GetElementPtrInst* destPtr = GetElementPtrInst::CreateInBounds(alloca, ArrayRef<Value*>(idxlist), "", parent);
+        
+        if(not dyn_cast<LoadInst>(encryptedString)){
+            idxlist.clear();
+            idxlist.push_back(ConstantInt::get(IntegerType::getInt64Ty(M.getContext()), 0));
+            idxlist.push_back(ConstantInt::get(IntegerType::getInt64Ty(M.getContext()), i));
+            //convert [NB x i8]* to i8  *...
+            //%cast = getelementptr [NB x i8]* @.str, i64 0, i64 i
+        }
+        
+        GetElementPtrInst* srcPtr = GetElementPtrInst::Create(encryptedString, ArrayRef<Value*>(idxlist), "", parent);
+        LoadInst* srcload = new LoadInst(srcPtr, "", false, 8, parent);
+
+        BinaryOperator* clearChar = BinaryOperator::CreateXor(srcload, ConstantInt::get(IntegerType::getInt8Ty(M.getContext()), _key[i%_key.size()]), "", parent);
+        new StoreInst(clearChar, destPtr, false, 8, parent);                                                        
     }
-   return alloca;
+    return alloca; 
 }
 
 char XorStringEncryption::ID = 0;
