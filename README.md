@@ -4,4 +4,5 @@ Please have a look at the [wiki](https://github.com/obfuscator-llvm/obfuscator/w
 
 * Switch to LLVM 3.5.0
 * Added annotations
+* Basic blocks splitting
 * Bug fixes
