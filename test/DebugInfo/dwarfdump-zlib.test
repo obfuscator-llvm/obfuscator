@@ -1,0 +1,6 @@
+REQUIRES: zlib
+
+RUN: llvm-dwarfdump %p/Inputs/dwarfdump-test-zlib.elf-x86-64 | FileCheck %s
+
+CHECK: .debug_abbrev contents
+CHECK: .debug_info contents

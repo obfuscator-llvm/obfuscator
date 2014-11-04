@@ -1,0 +1,51 @@
+add_subdirectory(Rewrite)
+
+set(LLVM_LINK_COMPONENTS
+  Option
+  Support
+  )
+
+add_clang_library(clangFrontend
+  ASTConsumers.cpp
+  ASTMerge.cpp
+  ASTUnit.cpp
+  CacheTokens.cpp
+  ChainedDiagnosticConsumer.cpp
+  ChainedIncludesSource.cpp
+  CompilerInstance.cpp
+  CompilerInvocation.cpp
+  CreateInvocationFromCommandLine.cpp
+  DependencyFile.cpp
+  DependencyGraph.cpp
+  DiagnosticRenderer.cpp
+  FrontendAction.cpp
+  FrontendActions.cpp
+  FrontendOptions.cpp
+  HeaderIncludeGen.cpp
+  InitHeaderSearch.cpp
+  InitPreprocessor.cpp
+  LangStandards.cpp
+  LayoutOverrideSource.cpp
+  LogDiagnosticPrinter.cpp
+  ModuleDependencyCollector.cpp
+  MultiplexConsumer.cpp
+  PrintPreprocessedOutput.cpp
+  SerializedDiagnosticPrinter.cpp
+  TextDiagnostic.cpp
+  TextDiagnosticBuffer.cpp
+  TextDiagnosticPrinter.cpp
+  VerifyDiagnosticConsumer.cpp
+
+  DEPENDS
+  ClangDriverOptions
+
+  LINK_LIBS
+  clangAST
+  clangBasic
+  clangDriver
+  clangEdit
+  clangLex
+  clangParse
+  clangSema
+  clangSerialization
+  )

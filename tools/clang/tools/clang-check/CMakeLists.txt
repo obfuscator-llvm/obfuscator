@@ -1,0 +1,21 @@
+set(LLVM_LINK_COMPONENTS
+  Option
+  Support
+  )
+
+add_clang_executable(clang-check
+  ClangCheck.cpp
+  )
+
+target_link_libraries(clang-check
+  clangAST
+  clangBasic
+  clangDriver
+  clangFrontend
+  clangRewriteFrontend
+  clangStaticAnalyzerFrontend
+  clangTooling
+  )
+
+install(TARGETS clang-check
+  RUNTIME DESTINATION bin)
