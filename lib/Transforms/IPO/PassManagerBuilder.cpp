@@ -176,6 +176,7 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
     if (!GlobalExtensions->empty() || !Extensions.empty())
       MPM.add(createBarrierNoopPass());
 
+    MPM.add(createSubstitution(Substitution));
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     return;
   }
