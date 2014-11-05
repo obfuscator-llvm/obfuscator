@@ -76,7 +76,7 @@ static cl::opt<bool> Substitution("sub", cl::init(false),
 static cl::opt<std::string> AesSeed("aesSeed", cl::init(""),
                                     cl::desc("seed for the AES-CTR PRNG"));
 
-static cl::opt<bool> Split("split", cl::init(false),
+static cl::opt<bool> Split("spli", cl::init(false),
                            cl::desc("Enable basic block splitting"));
 
 PassManagerBuilder::PassManagerBuilder() {
