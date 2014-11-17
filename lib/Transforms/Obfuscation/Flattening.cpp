@@ -74,6 +74,12 @@ bool Flattening::flatten(Function *f) {
   llvm::cryptoutils->get_bytes(scrambling_key, 16);
   // END OF SCRAMBLER
 
+  // Avoid function which are 'inlined' in the Module
+  // but supressed in the backend (like atoi())
+  if (f->hasExternalLinkage() == 0) {
+    return false;
+  }
+
   // Lower switch
   FunctionPass *lower = createLowerSwitchPass();
   lower->runOnFunction(*f);
