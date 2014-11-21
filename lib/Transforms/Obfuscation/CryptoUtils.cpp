@@ -574,7 +574,7 @@ void CryptoUtils::prng_seed(const std::string _seed) {
   // _seed is defined to be the
   // key initial value
   memcpy(key, s, 16);
-  DEBUG_WITH_TYPE("cryptoutils", dbgs() << "CPNRG seeded with " << _seed);
+  DEBUG_WITH_TYPE("cryptoutils", dbgs() << "CPNRG seeded with " << _seed << "\n");
 
   // ctr is initialized to all-zeroes
   memset(ctr, 0, 16);
@@ -638,7 +638,7 @@ void CryptoUtils::prng_seed() {
     }
 
     devrandom.close();
-    DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with /dev/random");
+    DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with /dev/random\n");
 
     memset(ctr, 0, 16);
 
