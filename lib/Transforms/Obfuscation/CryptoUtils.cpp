@@ -551,8 +551,6 @@ void CryptoUtils::prng_seed(const std::string _seed) {
   unsigned char s[16];
   unsigned int i = 0;
 
-  assert(_seed != NULL && "CryptoUtils::prng_seed _seed=NULL");
-
   /* We accept a prefix "0x" */
   if (!(_seed.size() == 32 || _seed.size() == 34)) {
     LLVMContext &ctx = llvm::getGlobalContext();
