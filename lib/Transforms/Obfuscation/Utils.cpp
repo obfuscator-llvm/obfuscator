@@ -106,6 +106,11 @@ bool toObfuscate(bool flag, Function *f, std::string attribute) {
     return false;
   }
 
+  // Check external linkage
+  if(f->hasAvailableExternallyLinkage() != 0) {
+    return false;
+  }
+
   // We have to check the nofla flag first
   // Because .find("fla") is true for a string like "fla" or
   // "nofla"
