@@ -34,9 +34,11 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
         GlobalVariable* GV = I;
         if(GV->isConstant()){
             Constant* c = GV->getInitializer();
-            ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(c);
-            if(cds){
-                StringGlobalVars.push_back(I);
+            if(c){
+                ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(c);
+                if(cds){
+                    StringGlobalVars.push_back(I);
+                }
             }
         }
     }
@@ -68,7 +70,7 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
         oss << ".encstr" << encryptedStringCounter;
         encryptedStringCounter++;
         Constant *cryptedStr = ConstantDataArray::getString(M.getContext(), encryptedString, true);
-        GlobalVariable* gCryptedStr = new GlobalVariable(M, cryptedStr->getType(), true, GlobalValue::ExternalLinkage, cryptedStr, oss.str());
+        GlobalVariable* gCryptedStr = new GlobalVariable(M, cryptedStr->getType(), true, GV->getLinkage(), cryptedStr, oss.str());
         StringMapGlobalVars[oss.str()] = gCryptedStr;
         
         //replace use of clear string with encrypted string
@@ -98,7 +100,13 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
                     handleLoad(M, load);
                     continue;
                 }
-                
+				
+				//check if instruction is invoke
+                InvokeInst *invoke = dyn_cast<InvokeInst>(inst);
+                if(invoke != 0){
+                    handleInvoke(M, invoke);
+                    continue;
+                }
             }
         }
     }
@@ -177,4 +185,32 @@ void AbstractStringEncryptionPass::handleCall(llvm::Module &M, llvm::CallInst* C
             Call->setArgOperand(i, decryptedStr);
         }
     }    
+}
+
+void AbstractStringEncryptionPass::handleInvoke(llvm::Module &M, llvm::InvokeInst* Invoke){
+    for(unsigned i = 0; i < Invoke->getNumArgOperands(); i++){       
+        llvm::ConstantExpr *constExpr = llvm::dyn_cast<llvm::ConstantExpr>(Invoke->getArgOperand(i));
+        //not a constant expr
+        if (constExpr == 0)
+            continue;
+        //not a gep
+        if (constExpr->getOpcode() != llvm::Instruction::GetElementPtr)
+            continue;
+
+        llvm::GetElementPtrInst* gepInst = dyn_cast<llvm::GetElementPtrInst>(constExpr->getAsInstruction());
+        if(gepInst == 0)
+            continue;
+        
+        //load encrypted string
+        StringRef gepOpName = gepInst->getPointerOperand()->getName();
+        std::map<std::string, GlobalVariable*>::iterator it = StringMapGlobalVars.find(gepOpName.str());
+        if(it != StringMapGlobalVars.end()){
+            //get size of string
+            ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(it->second->getInitializer());
+            uint64_t size = cds->getNumElements();
+             //generate IR to decrypt string
+            llvm::Value* decryptedStr = stringDecryption(M, it->second, size, Invoke);
+            Invoke->setArgOperand(i, decryptedStr);
+        }
+    }
 }
