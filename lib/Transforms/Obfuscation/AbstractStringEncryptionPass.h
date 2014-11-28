@@ -11,6 +11,7 @@ namespace llvm {
 	class Module;
 	class LoadInst;
 	class CallInst;
+	class InvokeInst;
 }
 
 namespace llvm {
@@ -37,6 +38,7 @@ namespace llvm {
 		private:
 			void handleLoad(llvm::Module &M, llvm::LoadInst* Load);
 			void handleCall(llvm::Module &M, llvm::CallInst* Call);
+			void handleInvoke(llvm::Module &M, llvm::InvokeInst* Invoke);
 			
 		private:
 			std::map<std::string, GlobalVariable*> StringMapGlobalVars;
