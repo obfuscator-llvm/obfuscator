@@ -10,6 +10,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Process.h"
 
 #include "AbstractStringEncryptionPass.h"
 
@@ -67,7 +68,7 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
         //create new global string with the encrypted string
         //@todo check if name does not exist in module
         std::ostringstream oss;
-        oss << ".encstr" << encryptedStringCounter;
+        oss << ".encstr" << encryptedStringCounter << "_" << sys::Process::GetRandomNumber();
         encryptedStringCounter++;
         Constant *cryptedStr = ConstantDataArray::getString(M.getContext(), encryptedString, true);
         GlobalVariable* gCryptedStr = new GlobalVariable(M, cryptedStr->getType(), true, GV->getLinkage(), cryptedStr, oss.str());
