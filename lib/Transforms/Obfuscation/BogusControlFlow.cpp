@@ -138,7 +138,6 @@ namespace {
         return false;
       }
 
-      
       if(F.hasExternalLinkage() == 0) {
         return false;
       }
