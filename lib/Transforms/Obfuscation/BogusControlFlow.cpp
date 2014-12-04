@@ -112,9 +112,6 @@ ObfProbRate("boguscf-prob", cl::desc("Choose the probability [%] each basic bloc
 static cl::opt<int>
 ObfTimes("boguscf-loop", cl::desc("Choose how many time the -bcf pass loop on a function"), cl::value_desc("number of times"), cl::init(defaultObfTime), cl::Optional);
 
-static cl::opt<string>
-FunctionName("funcBCF",cl::init(""),cl::desc("Bogus Control Flow only certain functions: -mllvm -func=\"func1,func2\""));
-
 namespace {
   struct BogusControlFlow : public FunctionPass {
     static char ID; // Pass identification
@@ -129,8 +126,6 @@ namespace {
      * to the function. See header for more details.
      */
     virtual bool runOnFunction(Function &F){
-      std::string func = FunctionName;
-
       // Check if the percentage is correct
       if (ObfTimes <= 0) {
         LLVMContext &ctx = llvm::getGlobalContext();
