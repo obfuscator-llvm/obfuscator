@@ -115,13 +115,10 @@ ObfTimes("boguscf-loop", cl::desc("Choose how many time the -bcf pass loop on a 
 static cl::opt<string>
 FunctionName("funcBCF",cl::init(""),cl::desc("Bogus Control Flow only certain functions: -mllvm -func=\"func1,func2\""));
 
-static cl::opt<int>
-Percentage("perBCF",cl::init(100),cl::desc("Bogus Control Flow only a certain percentage of functions"));
-
 namespace {
   struct BogusControlFlow : public FunctionPass {
     static char ID; // Pass identification
-    bool flag = false;
+    bool flag;
     BogusControlFlow() : FunctionPass(ID) {}
     BogusControlFlow(bool flag) : FunctionPass(ID) {this->flag = flag; BogusControlFlow();}
 
@@ -133,14 +130,6 @@ namespace {
      */
     virtual bool runOnFunction(Function &F){
       std::string func = FunctionName;
-      // Check if declaration or variadic
-      if(F.isDeclaration()) {
-        return false;
-      }
-
-      if(F.hasExternalLinkage() == 0) {
-        return false;
-      }
 
       // Check if the percentage is correct
       if (ObfTimes <= 0) {
@@ -149,57 +138,22 @@ namespace {
       }
 
       // Check if the number of applications is correct
-      if ( !((Percentage > 0) && (Percentage <= 100)) ) {
-        LLVMContext &ctx = llvm::getGlobalContext();
-        ctx.emitError(Twine ("BogusControlFlow application function percentage -perBCF=x must be 0 < x <= 100"));
-      }
-
-      // Check if the number of applications is correct
       if ( !((ObfProbRate > 0) && (ObfProbRate <= 100)) ) {
         LLVMContext &ctx = llvm::getGlobalContext();
         ctx.emitError(Twine ("BogusControlFlow application basic blocks percentage -boguscf-prob=x must be 0 < x <= 100"));
       }
 
-      // We have to check the nofla flag first
-      // Because .find("fla") is true for a string like "fla" or
-      // "nofla"
-      if(readAnnotate(&F).find("nobcf") != string::npos) {
-        return false;
-      }
-
       // If fla annotations
-      if(readAnnotate(&F).find("bcf") != string::npos) {
+      if(toObfuscate(flag,&F,"bcf")) {
         bogus(F);
         doF(*F.getParent());
-        return false;
+        return true;
       }
 
-      // If fla flag is set
-      if(flag == true) {
-        // Check if the number of applications is correct
-        if ( !((Percentage > 0) && (Percentage <= 100)) ) {
-          LLVMContext &ctx = llvm::getGlobalContext();
-          ctx.emitError(Twine ("Bogus application function\
-                percentage -perBCF=x must be 0 < x <= 100"));
-        }
-        // Check name
-        else if(func.size() != 0 && func.find(F.getName()) != string::npos) {
-          bogus(F);
-          doF(*F.getParent());
-          return false;
-        }
-
-        if((((int)llvm::cryptoutils->get_range(100))) < Percentage ) { 
-          bogus(F);
-          doF(*F.getParent());
-          return false;
-        }
-      }
-
-      return true;
+      return false;
     } // end of runOnFunction()
 
-    bool bogus(Function &F) {
+    void bogus(Function &F) {
 
       // For statistics and debug
       ++NumFunction;
@@ -274,8 +228,6 @@ namespace {
           }
           firstTime = false;
         }while(--NumObfTimes > 0);
-        
-      return true;
     }
 
     /* addBogusFlow
