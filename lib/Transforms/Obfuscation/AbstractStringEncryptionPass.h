@@ -10,16 +10,20 @@ namespace llvm {
 	class GlobalVariable;
 	class Module;
 	class LoadInst;
+	class StoreInst;
 	class CallInst;
 	class InvokeInst;
+	class ReturnInst;
+	class GetElementPtrInst;
+	class Instruction;
 }
 
 namespace llvm {
-	class AbstractStringEncryptionPass : public llvm::ModulePass {
+	class AbstractStringEncryptionPass : public ModulePass {
 		public:
 			AbstractStringEncryptionPass(char ID);
 
-			virtual bool runOnModule(llvm::Module &M);
+			virtual bool runOnModule(Module &M);
 
 		protected:
 			/** encryption method
@@ -33,15 +37,28 @@ namespace llvm {
 			 * \param Size size of encrypted string
 			 * \param Parent parent instruction
 			 * \return value that will replace the load to the encrypted string */		
-			virtual llvm::Value* stringDecryption(llvm::Module &M, llvm::Value* EncryptedString, const uint64_t Size, llvm::Instruction* Parent) = 0;
+			virtual Value* stringDecryption(Module &M, Value* EncryptedString, const uint64_t Size, Instruction* Parent) = 0;
 
 		private:
-			void handleLoad(llvm::Module &M, llvm::LoadInst* Load);
-			void handleCall(llvm::Module &M, llvm::CallInst* Call);
-			void handleInvoke(llvm::Module &M, llvm::InvokeInst* Invoke);
+			void handleLoad(Module &M, LoadInst* Load);
+			void handleStore(Module &M, StoreInst* store);
+			void handleCall(Module &M, CallInst* Call);
+			void handleInvoke(Module &M, InvokeInst* Invoke);
+			void handleReturn(Module &M, ReturnInst* Ret);
+			void handleGEP(Module &M, GetElementPtrInst* Gep);
+			
+			void checkStringsCanBeEncrypted(Module &M, std::vector<GlobalVariable*>& StringGlobalVars);
+			
+			bool encryptString(Module &M, std::vector<GlobalVariable*>& StringGlobalVars, std::vector<GlobalVariable*>& StringGlobalVarsToDelete);
+			void insertDecryptionCode(Module &M);
+			
+			std::string getGlobalStringValue(GlobalVariable* GV);
 			
 		private:
 			std::map<std::string, GlobalVariable*> StringMapGlobalVars;
+			std::vector<Instruction*> InstructionToDel;
+			
+			uint64_t encryptedStringCounter;
 	};
 }
 
