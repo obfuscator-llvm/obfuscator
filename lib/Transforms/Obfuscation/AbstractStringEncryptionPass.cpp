@@ -39,15 +39,11 @@ bool AbstractStringEncryptionPass::runOnModule(Module &M) {
 			if(c){
 				ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(c);
 				if(cds){
-					if(cds->isString()){
+					if(cds->isString() || cds->isCString()){
 						StringGlobalVars.push_back(I);
 					}else{
-						if(cds->isCString()){
-							StringGlobalVars.push_back(I);
-						}else{
-							//not a string skip it
-							//errs() << "WARNING : Can't get string value from " << GV->getName() << " SKIP ENCRYPTION!\n";
-						}
+						//not a string skip it
+						//errs() << "WARNING : Can't get string value from " << GV->getName() << " SKIP ENCRYPTION!\n";
 					}
 				}
 			}
@@ -101,6 +97,38 @@ std::string AbstractStringEncryptionPass::getGlobalStringValue(GlobalVariable* G
 }
 
 void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::vector<GlobalVariable*>& StringGlobalVars) {
+	// @todo do not encrypt const char** not supported too many case too handle for now ...
+	// just detect const char**
+	for (Module::global_iterator I = M.global_begin(), E = M.global_end(); I != E; ++I) {
+		GlobalVariable* GV = I;
+		if(!GV->hasInitializer())
+			continue;
+		
+		ConstantArray* array = dyn_cast<ConstantArray>(GV->getInitializer());
+		if(array){
+			for(unsigned int i = 0; i < array->getNumOperands(); i++){
+				ConstantExpr* ce = dyn_cast<ConstantExpr>(array->getOperand(i));
+				if(ce == 0)
+					continue;
+
+				GetElementPtrInst *gepElementFromArray = dyn_cast<GetElementPtrInst>(ce->getAsInstruction());
+				if(gepElementFromArray == 0)
+					continue;
+
+				if(GlobalVariable* gv = dyn_cast<GlobalVariable>(gepElementFromArray->getPointerOperand())){
+					if(dyn_cast<ConstantDataSequential>(gv->getInitializer())){
+						std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), gv);
+						if(it != StringGlobalVars.end()){
+							errs() << "WARNING : " << getGlobalStringValue(gv) << " won't be ecnrypted (char** encryption is not supported!)!\n";
+							StringGlobalVars.erase(it);
+						}
+					}
+				}
+			}
+			continue;
+		}
+	}
+
 	//do not encrypt string that are directly in return instruction
 	// example : const char* fun(){ return "clear-text"; }
 	// this can't be encrypted since we have to do some allocation to decrypt the string ...
@@ -116,7 +144,7 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 				Value* retval = ret->getReturnValue();
 				if(retval == 0)
 					continue;
-				
+
 				//check if the return value is a load instruction
 				LoadInst* loadInst = dyn_cast<LoadInst>(retval);
 				if(loadInst){
@@ -136,9 +164,9 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 							// handle load i8* getelementptr inbounds ([X x i8]* @string, i32 0, i64 x), align 1
 							ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(GV->getInitializer());
 							if(cds){
-								errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 								std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), GV);
 								if(it != StringGlobalVars.end()){
+									errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 									StringGlobalVars.erase(it);
 								}
 							}else{
@@ -153,9 +181,9 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 											if(GV){
 												ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(GV->getInitializer());
 												if(cds){
-													errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 													std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), GV);
 													if(it != StringGlobalVars.end()){
+														errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 														StringGlobalVars.erase(it);
 													}
 												}
@@ -186,9 +214,9 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 							if(GV){
 								ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(GV->getInitializer());
 								if(cds){
-									errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 									std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), GV);
 									if(it != StringGlobalVars.end()){
+										errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 										StringGlobalVars.erase(it);
 									}
 								}
@@ -210,55 +238,14 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 					if(GV){
 						ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(GV->getInitializer());
 						if(cds){
-							errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 							std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), GV);
 							if(it != StringGlobalVars.end()){
+								errs() << "WARNING : " << getGlobalStringValue(GV) << " cant't be ecnrypted (const char* directly used in return instruction)!\n";
 								StringGlobalVars.erase(it);
 							}
 						}
 					}
 				}
-			}
-		}
-	}
-
-	// I don't know how to handle this case :	 
-	//	int main(){
-	//		const char *test[] = { "item0", "item1", "item2", "item3", "item4"};
-	//		printf("%s\n", test[3]);
-	//		return 0;
-	//	}
-	// do not encrypt those strings ...
-	// @TODO : find a way to handle this case and remove this code
-	for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
-		for (Function::iterator bb = I->begin(), e = I->end(); bb != e; ++bb) {
-			for (BasicBlock::iterator inst = bb->begin(); inst != bb->end(); ++inst) {
-				if(llvm::MemCpyInst* memcpyInst = dyn_cast<llvm::MemCpyInst>(inst)){
-					if (llvm::ConstantExpr *constExpr = llvm::dyn_cast<llvm::ConstantExpr>(memcpyInst->getArgOperand(1))){
-						if(llvm::CastInst* castInst = dyn_cast<llvm::CastInst>(constExpr->getAsInstruction())){		
-							if (GlobalVariable* global = dyn_cast<GlobalVariable>(castInst->getOperand(0))) {
-								if (ConstantArray* array = dyn_cast<ConstantArray>(global->getInitializer())) {
-									for(unsigned int i = 0; i < array->getNumOperands(); i++){
-										if(ConstantExpr* ce = dyn_cast<ConstantExpr>(array->getOperand(i))){
-											if(GetElementPtrInst *gep = dyn_cast<GetElementPtrInst>(ce->getAsInstruction())){
-												if(GlobalVariable* gv = dyn_cast<GlobalVariable>(gep->getPointerOperand())){
-													if(dyn_cast<ConstantDataSequential>(gv->getInitializer())){
-														errs() << "WARNING : " << getGlobalStringValue(gv) << " won't be ecnrypted (char** encryption not fully supported!)!\n";
-														std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), gv);
-														if(it != StringGlobalVars.end()){
-															StringGlobalVars.erase(it);
-														}
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			
 			}
 		}
 	}
@@ -376,61 +363,8 @@ void AbstractStringEncryptionPass::handleLoad(Module &M, LoadInst* Load) {
 	//check if loaded pointer is global
 	Value* ptrOp = Load->getPointerOperand();
 	GlobalVariable *GV = dyn_cast<GlobalVariable>(ptrOp);
-	if (GV == 0){
-		// handle load i8* getelementptr inbounds ([X x i8]* @string, i32 0, i64 x), align 1
-		ConstantExpr *constExpr = dyn_cast<ConstantExpr>(ptrOp);
-		if(constExpr != 0){
-			GetElementPtrInst* gepInst = dyn_cast<GetElementPtrInst>(constExpr->getAsInstruction());
-			if (gepInst != 0) {
-				//check if the string is encrypted
-				StringRef gepOpName = gepInst->getPointerOperand()->getName();
-				std::map<std::string, GlobalVariable*>::iterator it = StringMapGlobalVars.find(gepOpName.str());
-				if(it != StringMapGlobalVars.end()){
-					//get size of string
-					ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(it->second->getInitializer());
-					uint64_t size = cds->getNumElements();
-					//generate IR to decrypt string
-					Value* decryptedStr = stringDecryption(M, it->second, size, Load);
-					std::vector<Value*> idxlist;
-					idxlist.push_back(gepInst->getOperand(gepInst->getNumOperands() - 1));
-					GetElementPtrInst* newGep = GetElementPtrInst::Create(decryptedStr, ArrayRef<Value*>(idxlist), "", Load);
-					LoadInst* newload = new LoadInst(newGep, "", false, 8, Load);
-					//replace current load with the decryption code
-					Load->replaceAllUsesWith(newload);
-					InstructionToDel.push_back(Load);
-				}else{
-					// handle load i8** getelementptr inbounds ([X x i8*]* @string_array, i32 0, i64 x), align 8					
-					if (GlobalVariable* global = dyn_cast<GlobalVariable>(gepInst->getPointerOperand())) {
-						if (ConstantArray* array = dyn_cast<ConstantArray>(global->getInitializer())) {
-							Constant* c = array->getAggregateElement(dyn_cast<ConstantInt>(gepInst->getOperand(2))->getZExtValue());
-							ConstantExpr* ce = dyn_cast<ConstantExpr>(c);
-							if(ce){
-								GetElementPtrInst *gepElementFromArray = dyn_cast<GetElementPtrInst>(ce->getAsInstruction());
-								if(gepElementFromArray){
-									StringRef gepOpName = gepElementFromArray->getPointerOperand()->getName();
-									std::map<std::string, GlobalVariable*>::iterator it = StringMapGlobalVars.find(gepOpName.str());
-									if(it != StringMapGlobalVars.end()){
-										//get size of string
-										ConstantDataSequential *cds = dyn_cast<ConstantDataSequential>(it->second->getInitializer());
-										uint64_t size = cds->getNumElements();
-										//generate IR to decrypt string
-										Value* decryptedStr = stringDecryption(M, it->second, size, Load);
-										std::vector<Value*> idxlist;
-										idxlist.push_back(gepElementFromArray->getOperand(gepElementFromArray->getNumOperands() - 1));
-										GetElementPtrInst* newGep = GetElementPtrInst::Create(decryptedStr, ArrayRef<Value*>(idxlist), "", Load);
-										//replace current load with the decryption code
-										Load->replaceAllUsesWith(newGep);
-										InstructionToDel.push_back(Load);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+	if (GV == 0)
 		return;
-	}
 
 	//check if loaded pointer is constant
 	Constant* c = GV->getInitializer();
