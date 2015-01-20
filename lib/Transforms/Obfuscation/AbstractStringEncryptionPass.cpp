@@ -108,24 +108,45 @@ void AbstractStringEncryptionPass::checkStringsCanBeEncrypted(Module &M, std::ve
 		if(array){
 			for(unsigned int i = 0; i < array->getNumOperands(); i++){
 				ConstantExpr* ce = dyn_cast<ConstantExpr>(array->getOperand(i));
-				if(ce == 0)
-					continue;
+				if(ce == 0){
+					ConstantStruct* cs = dyn_cast<ConstantStruct>(array->getOperand(i));
+					if(cs == 0)
+						continue;
+					
+					for(unsigned int j = 0; j < cs->getNumOperands(); j++){
+						ConstantExpr* structelement = dyn_cast<ConstantExpr>(cs->getOperand(j));
+						if(structelement == 0)
+							continue;
+						GetElementPtrInst *gepElementFromStruct = dyn_cast<GetElementPtrInst>(structelement->getAsInstruction());
+						if(gepElementFromStruct == 0)
+							continue;
+						
+						if(GlobalVariable* gv = dyn_cast<GlobalVariable>(gepElementFromStruct->getPointerOperand())){
+							if(dyn_cast<ConstantDataSequential>(gv->getInitializer())){
+								std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), gv);
+								if(it != StringGlobalVars.end()){
+									errs() << "WARNING : " << getGlobalStringValue(gv) << " won't be ecnrypted (struct { char* x = \"str\"; } encryption is not supported!) - conversion from string literal to 'char *' is deprecated!\n";
+									StringGlobalVars.erase(it);
+								}
+							}
+						}
+					}
+				}else{
+					GetElementPtrInst *gepElementFromArray = dyn_cast<GetElementPtrInst>(ce->getAsInstruction());
+					if(gepElementFromArray == 0)
+						continue;
 
-				GetElementPtrInst *gepElementFromArray = dyn_cast<GetElementPtrInst>(ce->getAsInstruction());
-				if(gepElementFromArray == 0)
-					continue;
-
-				if(GlobalVariable* gv = dyn_cast<GlobalVariable>(gepElementFromArray->getPointerOperand())){
-					if(dyn_cast<ConstantDataSequential>(gv->getInitializer())){
-						std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), gv);
-						if(it != StringGlobalVars.end()){
-							errs() << "WARNING : " << getGlobalStringValue(gv) << " won't be ecnrypted (char** encryption is not supported!)!\n";
-							StringGlobalVars.erase(it);
+					if(GlobalVariable* gv = dyn_cast<GlobalVariable>(gepElementFromArray->getPointerOperand())){
+						if(dyn_cast<ConstantDataSequential>(gv->getInitializer())){
+							std::vector<GlobalVariable*>::iterator it = std::find(StringGlobalVars.begin(), StringGlobalVars.end(), gv);
+							if(it != StringGlobalVars.end()){
+								errs() << "WARNING : " << getGlobalStringValue(gv) << " won't be ecnrypted (char** encryption is not supported!)!\n";
+								StringGlobalVars.erase(it);
+							}
 						}
 					}
 				}
 			}
-			continue;
 		}
 	}
 
