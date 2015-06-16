@@ -349,13 +349,6 @@ namespace {
         // Remap attached metadata.
         SmallVector<std::pair<unsigned, MDNode *>, 4> MDs;
         i->getAllMetadata(MDs);
-        for (SmallVectorImpl<std::pair<unsigned, MDNode *> >::iterator
-            MI = MDs.begin(), ME = MDs.end(); MI != ME; ++MI) {
-          MDNode *Old = MI->second;
-          MDNode *New = MapValue(Old, VMap, RF_None, 0);
-          if (New != Old)
-            i->setMetadata(MI->first, New);
-        }
         DEBUG_WITH_TYPE("gen", errs() << "bcf: Metadatas remapped\n");
         // important for compiling with DWARF, using option -g.
         i->setDebugLoc(ji->getDebugLoc());

@@ -6,7 +6,7 @@ what goes in or not.
 The list is sorted by surname and formatted to allow easy grepping and
 beautification by scripts.  The fields are: name (N), email (E), web-address
 (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
-(S).
+(S). Each entry should contain at least the (N), (E) and (D) fields.
 
 N: Joe Abbey
 E: jabbey@arxan.com
@@ -19,6 +19,10 @@ D: SelectionDAG (lib/CodeGen/SelectionDAG/*)
 N: Rafael Avila de Espindola
 E: rafael.espindola@gmail.com
 D: Gold plugin (tools/gold/*)
+
+N: Justin Bogner
+E: mail@justinbogner.com
+D: InstrProfiling and related parts of ProfileData
 
 N: Chandler Carruth
 E: chandlerc@gmail.com
@@ -34,39 +38,51 @@ E: echristo@gmail.com
 D: Debug Information, autotools/configure/make build, inline assembly
 
 N: Greg Clayton
+E: gclayton@apple.com
 D: LLDB
 
+N: Marshall Clow
+E: mclow.lists@gmail.com
+D: libc++
+
 N: Peter Collingbourne
-D: libclc
+E: peter@pcc.me.uk
+D: llgo
 
 N: Anshuman Dasgupta
 E: adasgupt@codeaurora.org
 D: Hexagon Backend
 
+N: Duncan P. N. Exon Smith
+E: dexonsmith@apple.com
+D: Branch weights and BlockFrequencyInfo
+
 N: Hal Finkel
 E: hfinkel@anl.gov
-D: BBVectorize and the PowerPC target
+D: BBVectorize, the loop reroller, alias analysis and the PowerPC target
+
+N: Renato Golin
+E: renato.golin@linaro.org
+D: ARM Linux support
 
 N: Venkatraman Govindaraju
 E: venkatra@cs.wisc.edu
 D: Sparc Backend (lib/Target/Sparc/*)
 
 N: Tobias Grosser
+E: tobias@grosser.es
 D: Polly
 
 N: James Grosbach
 E: grosbach@apple.com
 D: MC layer
 
-N: Howard Hinnant
-D: libc++
-
 N: Justin Holewinski
 E: jholewinski@nvidia.com
 D: NVPTX Target (lib/Target/NVPTX/*)
 
-N: Andy Kaylor
-E: andrew.kaylor@intel.com
+N: Lang Hames
+E: lhames@gmail.com
 D: MCJIT, RuntimeDyld and JIT event listeners
 
 N: Galina Kistanova
@@ -91,10 +107,15 @@ W: http://nondot.org/~sabre/
 D: Everything not covered by someone else
 
 N: Tim Northover
-E: Tim.Northover@arm.com
+E: t.p.northover@gmail.com
 D: AArch64 backend
 
+N: Diego Novillo
+E: dnovillo@google.com
+D: SampleProfile and related parts of ProfileData
+
 N: Jakob Olesen
+E: stoklund@2pi.dk
 D: Register allocators and TableGen
 
 N: Richard Osborne
@@ -113,10 +134,6 @@ N: Daniel Sanders
 E: daniel.sanders@imgtec.com
 D: MIPS Backend (lib/Target/Mips/*)
 
-N: Richard Sandiford
-E: rsandifo@linux.vnet.ibm.com
-D: SystemZ Backend
-
 N: Duncan Sands
 E: baldrick@free.fr
 D: DragonEgg
@@ -132,7 +149,7 @@ D: Windows parts of Support, Object, ar, nm, objdump, ranlib, size
 N: Tom Stellard
 E: thomas.stellard@amd.com
 E: mesa-dev@lists.freedesktop.org
-D: R600 Backend
+D: Release manager for the 3.5 branch, R600 Backend, libclc
 
 N: Evgeniy Stepanov
 E: eugenis@google.com
@@ -142,6 +159,10 @@ N: Andrew Trick
 E: atrick@apple.com
 D: IndVar Simplify, Loop Strength Reduction, Instruction Scheduling
 
+N: Ulrich Weigand
+E: uweigand@de.ibm.com
+D: SystemZ Backend
+
 N: Bill Wendling
 E: isanbard@gmail.com
 D: libLTO, IR Linker
@@ -149,7 +170,3 @@ D: libLTO, IR Linker
 N: Peter Zotov
 E: whitequark@whitequark.org
 D: OCaml bindings
-
-N: Obfuscator-LLVM team
-E: dev@o-llvm.org
-D: Obfuscator

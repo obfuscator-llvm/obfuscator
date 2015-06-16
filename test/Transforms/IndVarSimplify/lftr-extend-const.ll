@@ -21,7 +21,7 @@ for.end:                                          ; preds = %for.body
 
 ; Check that post-incrementing the backedge taken count does not overflow.
 ; CHECK-LABEL: @postinc(
-; CHECK: icmp eq i32 %indvars.iv.next, 256
+; CHECK: icmp eq i32 %indvars.iv, 255
 define i32 @postinc() #0 {
 entry:
   br label %do.body

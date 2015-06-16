@@ -13,7 +13,7 @@
 
 @x = external global i32
 
-define void @test1(i32 %s) {
+define void @test1(i32 signext %s) {
 entry:
   %cmp = icmp eq i32 %s, 0
   br i1 %cmp, label %end, label %then
@@ -123,7 +123,7 @@ end:
 
 ; MICROMIPS:   $[[BB0]]:
 ; MICROMIPS:        lw      $[[R1:[0-9]+]], %got(x)($[[GP]])
-; MICROMIPS:        addiu   $[[R2:[0-9]+]], $zero, 1
+; MICROMIPS:        li16    $[[R2:[0-9]+]], 1
 ; MICROMIPS:        sw      $[[R2]], 0($[[R1]])
 ; MICROMIPS:   $[[BB2]]:
 ; MICROMIPS:        jr      $ra

@@ -6,9 +6,6 @@
 /* Exported configuration */
 #include "llvm/Config/llvm-config.h"
 
-/* Patch version of the LLVM API */
-#cmakedefine LLVM_VERSION_PATCH ${LLVM_VERSION_PATCH}
-
 /* Bug report URL. */
 #define BUG_REPORT_URL "${BUG_REPORT_URL}"
 
@@ -17,6 +14,9 @@
 
 /* Define to enable crash overrides */
 #cmakedefine ENABLE_CRASH_OVERRIDES
+
+/* Define to disable C++ atexit */
+#cmakedefine DISABLE_LLVM_DYLIB_ATEXIT
 
 /* Define if position independent code is enabled */
 #cmakedefine ENABLE_PIC
@@ -187,6 +187,9 @@
 
 /* Define to 1 if you have the <limits.h> header file. */
 #cmakedefine HAVE_LIMITS_H ${HAVE_LIMITS_H}
+
+/* Define to 1 if you have the <link.h> header file. */
+#cmakedefine HAVE_LINK_H ${HAVE_LINK_H}
 
 /* Define if you can use -rdynamic. */
 #define HAVE_LINK_EXPORT_DYNAMIC 1
@@ -420,6 +423,9 @@
 /* Have host's __chkstk */
 #cmakedefine HAVE___CHKSTK ${HAVE___CHKSTK}
 
+/* Have host's __chkstk_ms */
+#cmakedefine HAVE___CHKSTK_MS ${HAVE___CHKSTK_MS}
+
 /* Have host's __cmpdi2 */
 #cmakedefine HAVE___CMPDI2 ${HAVE___CMPDI2}
 
@@ -456,8 +462,8 @@
 /* Have host's ___chkstk */
 #cmakedefine HAVE____CHKSTK ${HAVE____CHKSTK}
 
-/* Linker version detected at compile time. */
-#undef HOST_LINK_VERSION
+/* Have host's ___chkstk_ms */
+#cmakedefine HAVE____CHKSTK_MS ${HAVE____CHKSTK_MS}
 
 /* Define if we link Polly to the tools */
 #cmakedefine LINK_POLLY_INTO_TOOLS
@@ -518,9 +524,6 @@
 /* Type of 1st arg on ELM Callback */
 #cmakedefine WIN32_ELMCB_PCSTR ${WIN32_ELMCB_PCSTR}
 
-/* Define to empty if `const' does not conform to ANSI C. */
-#undef const
-
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
 
@@ -541,8 +544,5 @@
 
 /* Define to 1 if you have the `_chsize_s' function. */
 #cmakedefine HAVE__CHSIZE_S ${HAVE__CHSIZE_S}
-
-/* Maximum path length */
-#cmakedefine MAXPATHLEN ${MAXPATHLEN}
 
 #endif

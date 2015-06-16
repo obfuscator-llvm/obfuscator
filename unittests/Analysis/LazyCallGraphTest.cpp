@@ -22,38 +22,38 @@ using namespace llvm;
 namespace {
 
 std::unique_ptr<Module> parseAssembly(const char *Assembly) {
-  auto M = make_unique<Module>("Module", getGlobalContext());
-
   SMDiagnostic Error;
-  bool Parsed =
-      ParseAssemblyString(Assembly, M.get(), Error, M->getContext()) == M.get();
+  std::unique_ptr<Module> M =
+      parseAssemblyString(Assembly, Error, getGlobalContext());
 
   std::string ErrMsg;
   raw_string_ostream OS(ErrMsg);
   Error.print("", OS);
 
   // A failure here means that the test itself is buggy.
-  if (!Parsed)
+  if (!M)
     report_fatal_error(OS.str().c_str());
 
   return M;
 }
 
-// IR forming a call graph with a diamond of triangle-shaped SCCs:
-//
-//         d1
-//        /  \
-//       d3--d2
-//      /     \
-//     b1     c1
-//   /  \    /  \
-//  b3--b2  c3--c2
-//       \  /
-//        a1
-//       /  \
-//      a3--a2
-//
-// All call edges go up between SCCs, and clockwise around the SCC.
+/*
+   IR forming a call graph with a diamond of triangle-shaped SCCs:
+
+           d1
+          /  \
+         d3--d2
+        /     \
+       b1     c1
+     /  \    /  \
+    b3--b2  c3--c2
+         \  /
+          a1
+         /  \
+        a3--a2
+
+   All call edges go up between SCCs, and clockwise around the SCC.
+ */
 static const char DiamondOfTriangles[] =
      "define void @a1() {\n"
      "entry:\n"

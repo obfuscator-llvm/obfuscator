@@ -33,9 +33,22 @@ else
 	LLVM_ENABLE_RTTI := 0
 endif
 
+# Don't try to run llvm-config during clean because it won't be available
+ifneq ($(MAKECMDGOALS),clean)
+LLVM_LIBS_TO_EXPORT := $(subst -l,,$(shell $(LLVM_CONFIG) --libs $(LINK_COMPONENTS) || echo Error))
+
+ifeq ($(LLVM_LIBS_TO_EXPORT),Error)
+$(error llvm-config --libs failed)
+endif
+
+ifndef LLVM_LIBS_TO_EXPORT
+$(error LLVM_LIBS_TO_EXPORT cannot be empty)
+endif
+endif
+
 OBJMODS := LLVMConfig.cmake LLVMConfigVersion.cmake LLVMExports.cmake
 
-$(PROJ_OBJ_DIR)/LLVMConfig.cmake: LLVMConfig.cmake.in $(LLVMBuildCMakeFrag)
+$(PROJ_OBJ_DIR)/LLVMConfig.cmake: LLVMConfig.cmake.in Makefile $(LLVMBuildCMakeFrag)
 	$(Echo) 'Generating LLVM CMake package config file'
 	$(Verb) ( \
 	 cat $< | sed \
@@ -45,7 +58,7 @@ $(PROJ_OBJ_DIR)/LLVMConfig.cmake: LLVMConfig.cmake.in $(LLVMBuildCMakeFrag)
 	  -e 's/@LLVM_VERSION_PATCH@/'"$(LLVM_VERSION_PATCH)"'/' \
 	  -e 's/@PACKAGE_VERSION@/'"$(LLVMVersion)"'/' \
 	  -e 's/@LLVM_COMMON_DEPENDS@//' \
-	  -e 's/@LLVM_AVAILABLE_LIBS@/'"$(subst -l,,$(LLVMConfigLibs))"'/' \
+	  -e 's/@LLVM_AVAILABLE_LIBS@/'"$(LLVM_LIBS_TO_EXPORT)"'/' \
 	  -e 's/@LLVM_ALL_TARGETS@/'"$(ALL_TARGETS)"'/' \
 	  -e 's/@LLVM_TARGETS_TO_BUILD@/'"$(TARGETS_TO_BUILD)"'/' \
 	  -e 's/@LLVM_TARGETS_WITH_JIT@/'"$(TARGETS_WITH_JIT)"'/' \
@@ -60,6 +73,7 @@ $(PROJ_OBJ_DIR)/LLVMConfig.cmake: LLVMConfig.cmake.in $(LLVMBuildCMakeFrag)
 	  -e 's/@LLVM_ENABLE_PIC@/'"$(ENABLE_PIC)"'/' \
 	  -e 's/@LLVM_ON_UNIX@/'"$(LLVM_ON_UNIX)"'/' \
 	  -e 's/@LLVM_ON_WIN32@/'"$(LLVM_ON_WIN32)"'/' \
+	  -e 's/@LLVM_LIBDIR_SUFFIX@//' \
 	  -e 's/@LLVM_CONFIG_INCLUDE_DIRS@/'"$(subst /,\/,$(PROJ_includedir))"'/' \
 	  -e 's/@LLVM_CONFIG_LIBRARY_DIRS@/'"$(subst /,\/,$(PROJ_libdir))"'/' \
 	  -e 's/@LLVM_CONFIG_CMAKE_DIR@/'"$(subst /,\/,$(PROJ_cmake))"'/' \
@@ -83,7 +97,7 @@ $(PROJ_OBJ_DIR)/LLVMExports.cmake: $(LLVMBuildCMakeExportsFrag)
 	$(Echo) 'Generating LLVM CMake target exports file'
 	$(Verb) ( \
 	  echo '# LLVM CMake target exports.  Do not include directly.' && \
-	  for lib in $(subst -l,,$(LLVMConfigLibs)); do \
+	  for lib in $(LLVM_LIBS_TO_EXPORT); do \
 	    echo 'add_library('"$$lib"' STATIC IMPORTED)' && \
 	    echo 'set_property(TARGET '"$$lib"' PROPERTY IMPORTED_LOCATION "'"$(PROJ_libdir)/lib$$lib.a"'")' ; \
 	  done && \

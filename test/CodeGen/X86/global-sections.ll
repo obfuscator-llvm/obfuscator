@@ -48,25 +48,24 @@ define void @F1() {
 ; LINUX-SECTIONS: .section        .rodata.G3,"a",@progbits
 ; LINUX-SECTIONS: .globl  G3
 
-; WIN32-SECTIONS: .section        .rdata,"rd",one_only,_G3
+; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G3
 ; WIN32-SECTIONS: .globl  _G3
 
 
 ; _Complex long long const G4 = 34;
-@G4 = unnamed_addr constant {i64,i64} { i64 34, i64 0 }
+@G4 = private unnamed_addr constant {i64,i64} { i64 34, i64 0 }
 
 ; DARWIN: .section        __TEXT,__literal16,16byte_literals
-; DARWIN: _G4:
+; DARWIN: L_G4:
 ; DARWIN:     .long 34
 
 ; DARWIN-STATIC: .section        __TEXT,__literal16,16byte_literals
-; DARWIN-STATIC: _G4:
+; DARWIN-STATIC: L_G4:
 ; DARWIN-STATIC:     .long 34
 
 ; DARWIN64: .section        __TEXT,__literal16,16byte_literals
-; DARWIN64: _G4:
+; DARWIN64: L_G4:
 ; DARWIN64:     .quad 34
-
 
 ; int G5 = 47;
 @G5 = global i32 47
@@ -127,7 +126,7 @@ define void @F1() {
 ; LINUX-SECTIONS: .section        .rodata.G7,"aMS",@progbits,1
 ; LINUX-SECTIONS:       .globl G7
 
-; WIN32-SECTIONS: .section        .rdata,"rd",one_only,_G7
+; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G7
 ; WIN32-SECTIONS:       .globl _G7
 
 
@@ -190,7 +189,27 @@ define void @F1() {
 ; LINUX-SECTIONS:        .asciz  "foo"
 ; LINUX-SECTIONS:        .size   .LG14, 4
 
-; WIN32-SECTIONS:        .section        .rdata,"rd"
+; WIN32-SECTIONS:        .section        .rdata,"dr"
 ; WIN32-SECTIONS: L_G14:
 ; WIN32-SECTIONS:        .asciz  "foo"
 
+; cannot be merged on MachO, but can on other formats.
+@G15 = unnamed_addr constant i64 0
+
+; LINUX: .section        .rodata.cst8,"aM",@progbits,8
+; LINUX: G15:
+
+; DARWIN: .section      __TEXT,__const
+; DARWIN: _G15:
+
+; DARWIN-STATIC: .section       __TEXT,__const
+; DARWIN-STATIC: _G15:
+
+; DARWIN64: .section       __TEXT,__const
+; DARWIN64: _G15:
+
+; LINUX-SECTIONS: .section      .rodata.G15,"aM",@progbits,8
+; LINUX-SECTIONS: G15:
+
+; WIN32-SECTIONS: .section      .rdata,"dr",one_only,_G15
+; WIN32-SECTIONS: _G15:

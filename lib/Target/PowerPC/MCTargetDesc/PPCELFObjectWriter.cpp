@@ -24,11 +24,7 @@ namespace {
   public:
     PPCELFObjectWriter(bool Is64Bit, uint8_t OSABI);
 
-    virtual ~PPCELFObjectWriter();
   protected:
-    virtual unsigned getRelocTypeInner(const MCValue &Target,
-                                       const MCFixup &Fixup,
-                                       bool IsPCRel) const;
     unsigned GetRelocType(const MCValue &Target, const MCFixup &Fixup,
                           bool IsPCRel) const override;
 
@@ -41,9 +37,6 @@ PPCELFObjectWriter::PPCELFObjectWriter(bool Is64Bit, uint8_t OSABI)
   : MCELFObjectTargetWriter(Is64Bit, OSABI,
                             Is64Bit ?  ELF::EM_PPC64 : ELF::EM_PPC,
                             /*HasRelocationAddend*/ true) {}
-
-PPCELFObjectWriter::~PPCELFObjectWriter() {
-}
 
 static MCSymbolRefExpr::VariantKind getAccessVariant(const MCValue &Target,
                                                      const MCFixup &Fixup) {
@@ -73,10 +66,9 @@ static MCSymbolRefExpr::VariantKind getAccessVariant(const MCValue &Target,
   llvm_unreachable("unknown PPCMCExpr kind");
 }
 
-unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
-                                               const MCFixup &Fixup,
-                                               bool IsPCRel) const
-{
+unsigned PPCELFObjectWriter::GetRelocType(const MCValue &Target,
+                                          const MCFixup &Fixup,
+                                          bool IsPCRel) const {
   MCSymbolRefExpr::VariantKind Modifier = getAccessVariant(Target, Fixup);
 
   // determine the type of the relocation
@@ -94,6 +86,9 @@ unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
         break;
       case MCSymbolRefExpr::VK_PLT:
         Type = ELF::R_PPC_PLTREL24;
+        break;
+      case MCSymbolRefExpr::VK_PPC_LOCAL:
+        Type = ELF::R_PPC_LOCAL24PC;
         break;
       }
       break;
@@ -236,7 +231,10 @@ unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
         Type = ELF::R_PPC64_DTPREL16_HIGHESTA;
         break;
       case MCSymbolRefExpr::VK_PPC_GOT_TLSGD:
-        Type = ELF::R_PPC64_GOT_TLSGD16;
+        if (is64Bit())
+          Type = ELF::R_PPC64_GOT_TLSGD16;
+        else
+          Type = ELF::R_PPC_GOT_TLSGD16;
         break;
       case MCSymbolRefExpr::VK_PPC_GOT_TLSGD_LO:
         Type = ELF::R_PPC64_GOT_TLSGD16_LO;
@@ -248,7 +246,10 @@ unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
         Type = ELF::R_PPC64_GOT_TLSGD16_HA;
         break;
       case MCSymbolRefExpr::VK_PPC_GOT_TLSLD:
-        Type = ELF::R_PPC64_GOT_TLSLD16;
+        if (is64Bit())
+          Type = ELF::R_PPC64_GOT_TLSLD16;
+        else
+          Type = ELF::R_PPC_GOT_TLSLD16;
         break;
       case MCSymbolRefExpr::VK_PPC_GOT_TLSLD_LO:
         Type = ELF::R_PPC64_GOT_TLSLD16_LO;
@@ -344,13 +345,22 @@ unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
       switch (Modifier) {
       default: llvm_unreachable("Unsupported Modifier");
       case MCSymbolRefExpr::VK_PPC_TLSGD:
-        Type = ELF::R_PPC64_TLSGD;
+        if (is64Bit())
+          Type = ELF::R_PPC64_TLSGD;
+        else
+          Type = ELF::R_PPC_TLSGD;
         break;
       case MCSymbolRefExpr::VK_PPC_TLSLD:
-        Type = ELF::R_PPC64_TLSLD;
+        if (is64Bit())
+          Type = ELF::R_PPC64_TLSLD;
+        else
+          Type = ELF::R_PPC_TLSLD;
         break;
       case MCSymbolRefExpr::VK_PPC_TLS:
-        Type = ELF::R_PPC64_TLS;
+        if (is64Bit())
+          Type = ELF::R_PPC64_TLS;
+        else
+          Type = ELF::R_PPC_TLS;
         break;
       }
       break;
@@ -383,12 +393,6 @@ unsigned PPCELFObjectWriter::getRelocTypeInner(const MCValue &Target,
     }
   }
   return Type;
-}
-
-unsigned PPCELFObjectWriter::GetRelocType(const MCValue &Target,
-                                          const MCFixup &Fixup,
-                                          bool IsPCRel) const {
-  return getRelocTypeInner(Target, Fixup, IsPCRel);
 }
 
 bool PPCELFObjectWriter::needsRelocateWithSymbol(const MCSymbolData &SD,

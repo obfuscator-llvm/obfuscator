@@ -38,7 +38,7 @@
 ; 64-CMP-DAG:   or $[[T2:[0-9]+]], $[[T0]], $[[T1]]
 ; 64-CMP-DAG:   ld $2, 0($[[T2]])
 
-define i32* @cmov1(i32 %s) nounwind readonly {
+define i32* @cmov1(i32 signext %s) nounwind readonly {
 entry:
   %tobool = icmp ne i32 %s, 0
   %tmp1 = load i32** @i3, align 4
@@ -78,7 +78,7 @@ entry:
 ; 64-CMP-DAG:   or $[[T2:[0-9]+]], $[[T0]], $[[T1]]
 ; 64-CMP-DAG:   lw $2, 0($[[T2]])
 
-define i32 @cmov2(i32 %s) nounwind readonly {
+define i32 @cmov2(i32 signext %s) nounwind readonly {
 entry:
   %tobool = icmp ne i32 %s, 0
   %tmp1 = load i32* @c, align 4
@@ -109,7 +109,7 @@ entry:
 ; 64-CMP-DAG:   selnez $[[T1:[0-9]+]], $6, $[[CC]]
 ; 64-CMP-DAG:   or $2, $[[T0]], $[[T1]]
 
-define i32 @cmov3(i32 %a, i32 %b, i32 %c) nounwind readnone {
+define i32 @cmov3(i32 signext %a, i32 signext %b, i32 signext %c) nounwind readnone {
 entry:
   %cmp = icmp eq i32 %a, 234
   %cond = select i1 %cmp, i32 %b, i32 %c
@@ -142,7 +142,7 @@ entry:
 ; 64-CMP-DAG:   seleqz $[[T1:[0-9]+]], $6, $[[CC]]
 ; 64-CMP-DAG:   or $2, $[[T0]], $[[T1]]
 
-define i32 @cmov3_ne(i32 %a, i32 %b, i32 %c) nounwind readnone {
+define i32 @cmov3_ne(i32 signext %a, i32 signext %b, i32 signext %c) nounwind readnone {
 entry:
   %cmp = icmp ne i32 %a, 234
   %cond = select i1 %cmp, i32 %b, i32 %c
@@ -179,7 +179,7 @@ entry:
 ; 64-CMP-DAG:  selnez $[[T1:[0-9]+]], $6, $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i64 @cmov4(i32 %a, i64 %b, i64 %c) nounwind readnone {
+define i64 @cmov4(i32 signext %a, i64 %b, i64 %c) nounwind readnone {
 entry:
   %cmp = icmp eq i32 %a, 234
   %cond = select i1 %cmp, i64 %b, i64 %c
@@ -220,7 +220,7 @@ entry:
 ; 64-CMP-DAG:  seleqz $[[T1:[0-9]+]], $6, $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i64 @cmov4_ne(i32 %a, i64 %b, i64 %c) nounwind readnone {
+define i64 @cmov4_ne(i32 signext %a, i64 %b, i64 %c) nounwind readnone {
 entry:
   %cmp = icmp ne i32 %a, 234
   %cond = select i1 %cmp, i64 %b, i64 %c
@@ -263,7 +263,7 @@ entry:
 ; 64-CMP-DAG:  selnez $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @slti0(i32 %a) {
+define i32 @slti0(i32 signext %a) {
 entry:
   %cmp = icmp sgt i32 %a, 32766
   %cond = select i1 %cmp, i32 3, i32 5
@@ -302,7 +302,7 @@ entry:
 ; 64-CMP-DAG:  seleqz $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @slti1(i32 %a) {
+define i32 @slti1(i32 signext %a) {
 entry:
   %cmp = icmp sgt i32 %a, 32767
   %cond = select i1 %cmp, i32 7, i32 5
@@ -337,7 +337,7 @@ entry:
 ; 64-CMP-DAG:  selnez $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @slti2(i32 %a) {
+define i32 @slti2(i32 signext %a) {
 entry:
   %cmp = icmp sgt i32 %a, -32769
   %cond = select i1 %cmp, i32 3, i32 5
@@ -380,7 +380,7 @@ entry:
 ; 64-CMP-DAG:  seleqz $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @slti3(i32 %a) {
+define i32 @slti3(i32 signext %a) {
 entry:
   %cmp = icmp sgt i32 %a, -32770
   %cond = select i1 %cmp, i32 3, i32 5
@@ -567,7 +567,7 @@ entry:
 ; 64-CMP-DAG:  selnez $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @sltiu0(i32 %a) {
+define i32 @sltiu0(i32 signext %a) {
 entry:
   %cmp = icmp ugt i32 %a, 32766
   %cond = select i1 %cmp, i32 3, i32 5
@@ -606,7 +606,7 @@ entry:
 ; 64-CMP-DAG:  seleqz $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @sltiu1(i32 %a) {
+define i32 @sltiu1(i32 signext %a) {
 entry:
   %cmp = icmp ugt i32 %a, 32767
   %cond = select i1 %cmp, i32 7, i32 5
@@ -641,7 +641,7 @@ entry:
 ; 64-CMP-DAG:  selnez $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @sltiu2(i32 %a) {
+define i32 @sltiu2(i32 signext %a) {
 entry:
   %cmp = icmp ugt i32 %a, -32769
   %cond = select i1 %cmp, i32 3, i32 5
@@ -684,7 +684,7 @@ entry:
 ; 64-CMP-DAG:  seleqz $[[T1:[0-9]+]], $[[I5]], $[[R0]]
 ; 64-CMP-DAG:  or $2, $[[T0]], $[[T1]]
 
-define i32 @sltiu3(i32 %a) {
+define i32 @sltiu3(i32 signext %a) {
 entry:
   %cmp = icmp ugt i32 %a, -32770
   %cond = select i1 %cmp, i32 3, i32 5
@@ -697,7 +697,7 @@ entry:
 ; doesn't generate conditional moves
 ; for constant operands whose difference is |1|
 
-define i32 @slti4(i32 %a) nounwind readnone {
+define i32 @slti4(i32 signext %a) nounwind readnone {
   %1 = icmp slt i32 %a, 7
   %2 = select i1 %1, i32 4, i32 3
   ret i32 %2
@@ -723,7 +723,7 @@ define i32 @slti4(i32 %a) nounwind readnone {
 ; 64-CMP-NOT:  seleqz
 ; 64-CMP-NOT:  selnez
 
-define i32 @slti5(i32 %a) nounwind readnone {
+define i32 @slti5(i32 signext %a) nounwind readnone {
   %1 = icmp slt i32 %a, 7
   %2 = select i1 %1, i32 -3, i32 -4
   ret i32 %2
@@ -749,7 +749,7 @@ define i32 @slti5(i32 %a) nounwind readnone {
 ; 64-CMP-NOT:  seleqz
 ; 64-CMP-NOT:  selnez
 
-define i32 @slti6(i32 %a) nounwind readnone {
+define i32 @slti6(i32 signext %a) nounwind readnone {
   %1 = icmp slt i32 %a, 7
   %2 = select i1 %1, i32 3, i32 4
   ret i32 %2
@@ -757,24 +757,9 @@ define i32 @slti6(i32 %a) nounwind readnone {
 
 ; ALL-LABEL: slti6:
 
-; 32-CMOV-DAG: slti [[R1:\$[0-9]+]], $4, 7
-; 32-CMOV-DAG: xori [[R1]], [[R1]], 1
-; 32-CMOV-DAG: addiu [[R2:\$[0-9]+]], [[R1]], 3
-; 32-CMOV-NOT: movn
-
-; 32-CMP-DAG:  slti [[R1:\$[0-9]+]], $4, 7
-; 32-CMP-DAG:  xori [[R1]], [[R1]], 1
-; 32-CMP-DAG:  addiu [[R2:\$[0-9]+]], [[R1]], 3
-; 32-CMP-NOT:  seleqz
-; 32-CMP-NOT:  selnez
-
-; 64-CMOV-DAG: slti [[R1:\$[0-9]+]], $4, 7
-; 64-CMOV-DAG: xori [[R1]], [[R1]], 1
-; 64-CMOV-DAG: addiu [[R2:\$[0-9]+]], [[R1]], 3
-; 64-CMOV-NOT: movn
-
-; 64-CMP-DAG:  slti [[R1:\$[0-9]+]], $4, 7
-; 64-CMP-DAG:  xori [[R1]], [[R1]], 1
-; 64-CMP-DAG:  addiu [[R2:\$[0-9]+]], [[R1]], 3
-; 64-CMP-NOT:  seleqz
-; 64-CMP-NOT:  selnez
+; ALL-DAG: addiu [[R1:\$[0-9]+]], $zero, 6
+; ALL-DAG: slt [[R1]], [[R1]], $4
+; ALL-DAG: addiu [[R2:\$[0-9]+]], [[R1]], 3
+; ALL-NOT: movn
+; ALL-NOT:  seleqz
+; ALL-NOT:  selnez
