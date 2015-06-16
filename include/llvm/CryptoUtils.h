@@ -76,6 +76,10 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 
 #endif
 
+#if defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN)
+#define ENDIAN_BIG
+#endif
+
 #if !defined(ENDIAN_BIG) && !defined(ENDIAN_LITTLE)
 #error                                                                         \
     "Unknown endianness of the compilation platform, check this header aes_encrypt.h"
@@ -124,14 +128,14 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 
 #ifdef ENDIAN_BIG
 
-#define STORE32L(x, y)                                                         \
+#define STORE32H(y, x)                                                         \
   {                                                                            \
     (y)[3] = (uint8_t)(((x) >> 24) & 0xFF);                                    \
     (y)[2] = (uint8_t)(((x) >> 16) & 0xFF);                                    \
     (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                     \
     (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                     \
   }
-#define STORE64L(x, y)                                                         \
+#define STORE64H(y, x)                                                         \
   {                                                                            \
     (y)[7] = (uint8_t)(((x) >> 56) & 0xFF);                                    \
     (y)[6] = (uint8_t)(((x) >> 48) & 0xFF);                                    \
@@ -142,13 +146,14 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
     (y)[1] = (uint8_t)(((x) >> 8) & 0xFF);                                     \
     (y)[0] = (uint8_t)(((x) >> 0) & 0xFF);                                     \
   }
-#define LOAD32L(x, y)                                                          \
+#define LOAD32H(x, y)                                                          \
   {                                                                            \
     (x) = ((uint32_t)((y)[3] & 0xFF) << 24) |                                  \
           ((uint32_t)((y)[2] & 0xFF) << 16) |                                  \
-          ((uint32_t)((y)[1] & 0xFF) << 8) | ((uint32_t)((y)[0] & 0xFF) << 0);
+          ((uint32_t)((y)[1] & 0xFF) << 8) | ((uint32_t)((y)[0] & 0xFF) << 0); \
+}
 
-#define LOAD64L(x, y)                                                          \
+#define LOAD64H(x, y)                                                          \
   {                                                                            \
     (x) = ((uint64_t)((y)[7] & 0xFF) << 56) |                                  \
           ((uint64_t)((y)[6] & 0xFF) << 48) |                                  \
