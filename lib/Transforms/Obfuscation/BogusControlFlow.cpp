@@ -119,7 +119,6 @@ namespace {
     BogusControlFlow() : FunctionPass(ID) {}
     BogusControlFlow(bool flag) : FunctionPass(ID) {this->flag = flag; BogusControlFlow();}
 
-
     /* runOnFunction
      *
      * Overwrite FunctionPass method to apply the transformation
@@ -149,7 +148,6 @@ namespace {
     } // end of runOnFunction()
 
     void bogus(Function &F) {
-
       // For statistics and debug
       ++NumFunction;
       int NumBasicBlocks = 0;
