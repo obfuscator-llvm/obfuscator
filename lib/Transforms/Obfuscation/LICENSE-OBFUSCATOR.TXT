@@ -4,7 +4,7 @@ Obfuscator-LLVM Release License
 University of Illinois/NCSA
 Open Source License
 
-Copyright (c) 2014 Haute Ecole d'Ingénierie et de Gestion du Canton de Vaud (HEIG-VD). All rights reserved. 
+Copyright (c) 2013-2015 Haute Ecole d'Ingénierie et de Gestion du Canton de Vaud (HEIG-VD). All rights reserved. 
 
 Developed by:
 
