@@ -182,7 +182,7 @@ set(GCC_INSTALL_PREFIX "" CACHE PATH "Directory where gcc is installed." )
 set(DEFAULT_SYSROOT "" CACHE PATH
   "Default <path> to all compiler invocations for --sysroot=<path>." )
 
-set(CLANG_VENDOR "" CACHE STRING
+set(CLANG_VENDOR "Obfuscator-LLVM" CACHE STRING
   "Vendor-specific text for showing with version information.")
 
 if( CLANG_VENDOR )
