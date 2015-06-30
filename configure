@@ -562,7 +562,7 @@ SHELL=${CONFIG_SHELL-/bin/sh}
 PACKAGE_NAME='LLVM'
 PACKAGE_TARNAME='llvm'
 PACKAGE_VERSION='3.6.1'
-PACKAGE_STRING='LLVM 3.6.1'
+PACKAGE_STRING='Obfuscator-LLVM 3.6.1'
 PACKAGE_BUGREPORT='http://o-llvm.org'
 
 ac_unique_file="lib/IR/Module.cpp"
