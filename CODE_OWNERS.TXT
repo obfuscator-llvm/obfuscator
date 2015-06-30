@@ -170,3 +170,7 @@ D: libLTO, IR Linker
 N: Peter Zotov
 E: whitequark@whitequark.org
 D: OCaml bindings
+
+N: Obfuscator-LLVM team
+E: dev@o-llvm.org
+D: Obfuscator
