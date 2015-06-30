@@ -1184,8 +1184,8 @@ fi
 dnl Specify the URL where bug reports should be submitted.
 AC_ARG_WITH(bug-report-url,
   AS_HELP_STRING([--with-bug-report-url],
-    [Specify the URL where bug reports should be submitted (default=http://llvm.org/bugs/)]),,
-    withval="http://llvm.org/bugs/")
+    [Specify the URL where bug reports should be submitted (default=http://o-llvm.org/)]),,
+    withval="http://o-llvm.org")
 AC_DEFINE_UNQUOTED(BUG_REPORT_URL,"$withval",
                    [Bug report URL.])
 
