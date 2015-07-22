@@ -630,8 +630,6 @@ void CryptoUtils::prng_seed() {
   HCRYPTPROV hProvider = 0;
 
   if (::CryptAcquireContextW(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
-    const DWORD dwLength = 8;
-    BYTE pbBuffer[dwLength] = {};
 
     if (::CryptGenRandom(hProvider, sizeof(key), (BYTE*)key)) {
       DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with CryptGenRandom\n");
