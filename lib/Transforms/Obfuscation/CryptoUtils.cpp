@@ -33,6 +33,10 @@
 #include <cstring>
 #include <cstdio>
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 // Stats
 #define DEBUG_TYPE "CryptoUtils"
 STATISTIC(statsGetBytes, "a. Number of calls to get_bytes ()");
@@ -620,14 +624,30 @@ void CryptoUtils::populate_pool() {
 }
 
 void CryptoUtils::prng_seed() {
+  LLVMContext &ctx = llvm::getGlobalContext();
 
+#if defined(_WIN32)
+  HCRYPTPROV hProvider = 0;
+
+  if (::CryptAcquireContextW(&hProvider, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+
+    if (::CryptGenRandom(hProvider, sizeof(key), (BYTE*)key)) {
+      DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with CryptGenRandom\n");
+      seeded = true;
+    }
+
+    if (!::CryptReleaseContext(hProvider, 0)) {
+      DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils failed to release crypto context\n");
+    }
+  } else {
+    ctx.emitError(Twine("CryptAcquireContextW failed"));
+  }
+#else
 #if defined(__linux__)
   std::ifstream devrandom("/dev/urandom");
 #else
   std::ifstream devrandom("/dev/random");
 #endif
-
-  LLVMContext &ctx = llvm::getGlobalContext();
 
   if (devrandom) {
 
@@ -640,15 +660,22 @@ void CryptoUtils::prng_seed() {
     devrandom.close();
     DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with /dev/random\n");
 
+    seeded = true;
+  } else {
+    ctx.emitError(Twine("Cannot open /dev/random"));
+  }
+
+#endif
+
+  if (seeded) {
+
     memset(ctr, 0, 16);
 
     // Once the seed is there, we compute the
     // AES128 key-schedule
     aes_compute_ks(ks, key);
-
-    seeded = true;
   } else {
-    ctx.emitError(Twine("Cannot open /dev/random"));
+    ctx.emitError(Twine("Couldn't seed prng"));
   }
 }
 
