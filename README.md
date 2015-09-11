@@ -1,3 +1,5 @@
+Currently the open-source version of obfuscation-llvm is under maintenance since we are busy with our company. If you are interested for updates checkout our website: https://strong.codes
+
 Please have a look at the [wiki](https://github.com/obfuscator-llvm/obfuscator/wiki)!
 
 Current version: [LLVM-3.6.1](https://github.com/obfuscator-llvm/obfuscator/tree/llvm-3.6.1)
