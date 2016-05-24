@@ -28,6 +28,7 @@
 #include "llvm/Transforms/Obfuscation/Substitution.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
+#include "llvm/Transforms/Obfuscation/StringEncryption.h"
 #include "llvm/PrngAESCtr.h"
 
 
@@ -72,6 +73,9 @@ BogusControlFlow("bcf",cl::init(false),cl::desc("Enable bogus control flow"));
 
 static cl::opt<bool>
 Substitution("sub",cl::init(false),cl::desc("Enable instruction substitutions"));
+
+static cl::opt<bool>
+StringEncryption("xse",cl::init(false),cl::desc("Enable string encryptions"));
 
 static cl::opt<std::string>
 AesSeed("aesSeed",cl::init(""),cl::desc("seed for the AES-CTR PRNG"));
@@ -188,9 +192,13 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
     // Substitution
     if(Substitution) MPM.add(createSubstitution());
 
+    if(StringEncryption) MPM.add(createXorStringEncryption());
+        
     return;
   }
 
+  if(StringEncryption) MPM.add(createXorStringEncryption());
+  
   // Add LibraryInfo if we have some.
   if (LibraryInfo) MPM.add(new TargetLibraryInfo(*LibraryInfo));
 
