@@ -23,7 +23,7 @@
 
 #define DEBUG_TYPE "substitution"
 
-#define NUMBER_ADD_SUBST 4
+#define NUMBER_ADD_SUBST 5
 #define NUMBER_SUB_SUBST 3
 #define NUMBER_AND_SUBST 2
 #define NUMBER_OR_SUBST 2
@@ -85,6 +85,7 @@ struct Substitution : public FunctionPass {
     funcAdd[1] = &Substitution::addDoubleNeg;
     funcAdd[2] = &Substitution::addRand;
     funcAdd[3] = &Substitution::addRand2;
+    funcAdd[4] = &Substitution::addAha;
 
     funcSub[0] = &Substitution::subNeg;
     funcSub[1] = &Substitution::subRand;
@@ -108,6 +109,7 @@ struct Substitution : public FunctionPass {
   void addDoubleNeg(BinaryOperator *bo);
   void addRand(BinaryOperator *bo);
   void addRand2(BinaryOperator *bo);
+  void addAha(BinaryOperator *bo);
 
   void subNeg(BinaryOperator *bo);
   void subRand(BinaryOperator *bo);
@@ -153,7 +155,7 @@ bool Substitution::substitute(Function *f) {
           case BinaryOperator::Add:
             // case BinaryOperator::FAdd:
             // Substitute with random add operation
-            (this->*funcAdd[llvm::cryptoutils->get_range(NUMBER_ADD_SUBST)])(
+            (this->*funcAdd[/*llvm::cryptoutils->get_range(*/NUMBER_ADD_SUBST-1/*)*/])(
                 cast<BinaryOperator>(inst));
             ++Add;
             break;
@@ -315,6 +317,37 @@ void Substitution::addRand2(BinaryOperator *bo) {
       op = BinaryOperator::Create(Instruction::FAdd,op,bo->getOperand(1),"",bo);
       op = BinaryOperator::Create(Instruction::FSub,op,co,"",bo);
   } */
+}
+
+// using the aha! method to do add
+// since we get b XOR c = ((b AND c) * -2) + (b + c)
+// we convert to a = b + c = (b XOR c) - ((b AND c) * -2)
+//
+// a = b XOR c
+// x = b AND c
+// x = x * -2
+// a = a - x
+void Substitution::addAha(BinaryOperator *bo) {
+	BinaryOperator *a, *x = NULL;
+	
+	if (bo->getOpcode() == Instruction::Add) {
+		Type *ty = bo->getType();
+		
+		ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
+		Value *b = bo->getOperand(0);
+		Value *c = bo->getOperand(1);
+		
+		a = BinaryOperator::Create(Instruction::Xor, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::Mul, x, negTwo, "", bo);
+		a = BinaryOperator::Create(Instruction::Sub, a, x, "", bo);
+
+		// Check signed wrap
+		a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+		a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+	}
+	
+	bo->replaceAllUsesWith(a);
 }
 
 // Implementation of a = b + (-c)
@@ -596,8 +629,8 @@ void Substitution::xorSubstitutionRand(BinaryOperator *bo) {
 
 // XOR substitution using the method found in the Aha! superoptimizer
 // https://yurichev.com/blog/llvm/
-// 
 // a = b XOR c = ((b AND c) * -2) + b + c
+//
 // a = b AND c;
 // a = a * -2;
 // a = a + b;
