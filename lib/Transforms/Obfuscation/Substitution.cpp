@@ -18,6 +18,9 @@
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/IR/Intrinsics.h"
 
+#include <stdio.h>
+#include <random>
+
 #define DEBUG_TYPE "substitution"
 
 #define NUMBER_ADD_SUBST 4
@@ -25,6 +28,8 @@
 #define NUMBER_AND_SUBST 2
 #define NUMBER_OR_SUBST 2
 #define NUMBER_XOR_SUBST 2
+
+#define NUMBER_MUL_SUBST 1
 
 static cl::opt<int>
 ObfTimes("sub-loop",
@@ -48,7 +53,7 @@ Percentage("perSUB", cl::init(100),
 // Stats
 STATISTIC(Add, "Add substitued");
 STATISTIC(Sub, "Sub substitued");
-// STATISTIC(Mul,  "Mul substitued");
+STATISTIC(Mul,  "Mul substitued");
 // STATISTIC(Div,  "Div substitued");
 // STATISTIC(Rem,  "Rem substitued");
 // STATISTIC(Shi,  "Shift substitued");
@@ -65,6 +70,8 @@ struct Substitution : public FunctionPass {
   void (Substitution::*funcAnd[NUMBER_AND_SUBST])(BinaryOperator *bo);
   void (Substitution::*funcOr[NUMBER_OR_SUBST])(BinaryOperator *bo);
   void (Substitution::*funcXor[NUMBER_XOR_SUBST])(BinaryOperator *bo);
+  
+  void (Substitution::*funcMul[NUMBER_MUL_SUBST])(BinaryOperator *bo);
   bool flag;
 
   Substitution() : FunctionPass(ID) {}
@@ -95,6 +102,8 @@ struct Substitution : public FunctionPass {
 
     funcXor[0] = &Substitution::xorSubstitution;
     funcXor[1] = &Substitution::xorSubstitutionRand;
+    
+    funcMul[0] = &Substitution::mulSubstitution;
   }
 
   bool runOnFunction(Function &F);
@@ -117,6 +126,8 @@ struct Substitution : public FunctionPass {
 
   void xorSubstitution(BinaryOperator *bo);
   void xorSubstitutionRand(BinaryOperator *bo);
+  
+  void mulSubstitution(BinaryOperator *bo);
 };
 }
 
@@ -161,7 +172,10 @@ bool Substitution::substitute(Function *f) {
             break;
           case BinaryOperator::Mul:
           case BinaryOperator::FMul:
-            //++Mul;
+          	// substitute with mul
+          	(this->*funcMul[llvm::cryptoutils->get_range(NUMBER_MUL_SUBST)])(
+                cast<BinaryOperator>(inst));
+            ++Mul;
             break;
           case BinaryOperator::UDiv:
           case BinaryOperator::SDiv:
@@ -587,5 +601,52 @@ void Substitution::xorSubstitutionRand(BinaryOperator *bo) {
   // (!a && r) || (a && !r) ^ (!b && r) || (b && !r)
   op = BinaryOperator::Create(Instruction::Xor, op, op1, "", bo);
   bo->replaceAllUsesWith(op);
+}
+
+// multiplication substitution
+// a = b * c becomes:
+// x = rand(); 
+// y = rand(); 
+// z = x * y; -> overflow
+// a = b * x; 
+// a = a * c; 
+// a = a * y; 
+// a = a / z;
+void Substitution::mulSubstitution(BinaryOperator *bo) {
+	BinaryOperator *a, *z = NULL;
+	
+	std::random_device rd;
+	std::mt19937 rng(rd());
+	std::uniform_int_distribution<int> uni(1, 2);
+	auto x_val = uni(rng);
+	auto y_val = uni(rng);
+	  
+	Type *ty = bo->getType();
+	
+	Value *b = bo->getOperand(0);
+	Value *c = bo->getOperand(1);
+	ConstantInt *x = (ConstantInt *)ConstantInt::get(ty, x_val);
+	ConstantInt *y = (ConstantInt *)ConstantInt::get(ty, y_val);
+
+	// z = x * y
+	z = BinaryOperator::Create(Instruction::Mul, x, y, "", bo);
+
+	// a = b * x
+	a = BinaryOperator::Create(Instruction::Mul, b, x, "", bo);
+
+	// a = a * c
+	a = BinaryOperator::Create(Instruction::Mul, a, c, "", bo);
+
+	// a = a * y
+	a = BinaryOperator::Create(Instruction::Mul, a, y, "", bo);
+
+	// a = a / z
+	a = BinaryOperator::Create(Instruction::SDiv, a, z, "", bo);
+
+	// Check signed wrap
+	a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+	a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+
+	bo->replaceAllUsesWith(a);
 }
 
