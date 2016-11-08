@@ -27,9 +27,7 @@
 #define NUMBER_SUB_SUBST 3
 #define NUMBER_AND_SUBST 2
 #define NUMBER_OR_SUBST 2
-#define NUMBER_XOR_SUBST 2
-
-#define NUMBER_MUL_SUBST 1
+#define NUMBER_XOR_SUBST 3
 
 static cl::opt<int>
 ObfTimes("sub-loop",
@@ -53,7 +51,7 @@ Percentage("perSUB", cl::init(100),
 // Stats
 STATISTIC(Add, "Add substitued");
 STATISTIC(Sub, "Sub substitued");
-STATISTIC(Mul,  "Mul substitued");
+// STATISTIC(Mul,  "Mul substitued");
 // STATISTIC(Div,  "Div substitued");
 // STATISTIC(Rem,  "Rem substitued");
 // STATISTIC(Shi,  "Shift substitued");
@@ -70,8 +68,6 @@ struct Substitution : public FunctionPass {
   void (Substitution::*funcAnd[NUMBER_AND_SUBST])(BinaryOperator *bo);
   void (Substitution::*funcOr[NUMBER_OR_SUBST])(BinaryOperator *bo);
   void (Substitution::*funcXor[NUMBER_XOR_SUBST])(BinaryOperator *bo);
-  
-  void (Substitution::*funcMul[NUMBER_MUL_SUBST])(BinaryOperator *bo);
   bool flag;
 
   Substitution() : FunctionPass(ID) {}
@@ -102,8 +98,7 @@ struct Substitution : public FunctionPass {
 
     funcXor[0] = &Substitution::xorSubstitution;
     funcXor[1] = &Substitution::xorSubstitutionRand;
-    
-    funcMul[0] = &Substitution::mulSubstitution;
+    funcXor[2] = &Substitution::xorSubstitutionAha;
   }
 
   bool runOnFunction(Function &F);
@@ -126,8 +121,7 @@ struct Substitution : public FunctionPass {
 
   void xorSubstitution(BinaryOperator *bo);
   void xorSubstitutionRand(BinaryOperator *bo);
-  
-  void mulSubstitution(BinaryOperator *bo);
+  void xorSubstitutionAha(BinaryOperator *bo);
 };
 }
 
@@ -172,10 +166,7 @@ bool Substitution::substitute(Function *f) {
             break;
           case BinaryOperator::Mul:
           case BinaryOperator::FMul:
-          	// substitute with mul
-          	(this->*funcMul[llvm::cryptoutils->get_range(NUMBER_MUL_SUBST)])(
-                cast<BinaryOperator>(inst));
-            ++Mul;
+            //++Mul;
             break;
           case BinaryOperator::UDiv:
           case BinaryOperator::SDiv:
@@ -198,17 +189,17 @@ bool Substitution::substitute(Function *f) {
             break;
           case Instruction::And:
             (this->*
-             funcAnd[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcAnd[llvm::cryptoutils->get_range(NUMBER_AND_SUBST)])(cast<BinaryOperator>(inst));
             ++And;
             break;
           case Instruction::Or:
             (this->*
-             funcOr[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcOr[llvm::cryptoutils->get_range(NUMBER_OR_SUBST)])(cast<BinaryOperator>(inst));
             ++Or;
             break;
           case Instruction::Xor:
             (this->*
-             funcXor[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcXor[llvm::cryptoutils->get_range(NUMBER_XOR_SUBST)])(cast<BinaryOperator>(inst));
             ++Xor;
             break;
           default:
@@ -603,45 +594,33 @@ void Substitution::xorSubstitutionRand(BinaryOperator *bo) {
   bo->replaceAllUsesWith(op);
 }
 
-// multiplication substitution
-// a = b * c becomes:
-// x = rand(); 
-// y = rand(); 
-// z = x * y; -> overflow
-// a = b * x; 
-// a = a * c; 
-// a = a * y; 
-// a = a / z;
-void Substitution::mulSubstitution(BinaryOperator *bo) {
-	BinaryOperator *a, *z = NULL;
-	
-	std::random_device rd;
-	std::mt19937 rng(rd());
-	std::uniform_int_distribution<int> uni(1, 2);
-	auto x_val = uni(rng);
-	auto y_val = uni(rng);
-	  
+// XOR substitution using the method found in the Aha! superoptimizer
+// https://yurichev.com/blog/llvm/
+// 
+// a = b XOR c = ((b AND c) * -2) + b + c
+// a = b AND c;
+// a = a * -2;
+// a = a + b;
+// a = a + c; 
+void Substitution::xorSubstitutionAha(BinaryOperator *bo) {
+	BinaryOperator *a = NULL;
 	Type *ty = bo->getType();
 	
+	ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
 	Value *b = bo->getOperand(0);
 	Value *c = bo->getOperand(1);
-	ConstantInt *x = (ConstantInt *)ConstantInt::get(ty, x_val);
-	ConstantInt *y = (ConstantInt *)ConstantInt::get(ty, y_val);
-
-	// z = x * y
-	z = BinaryOperator::Create(Instruction::Mul, x, y, "", bo);
-
-	// a = b * x
-	a = BinaryOperator::Create(Instruction::Mul, b, x, "", bo);
-
-	// a = a * c
-	a = BinaryOperator::Create(Instruction::Mul, a, c, "", bo);
-
-	// a = a * y
-	a = BinaryOperator::Create(Instruction::Mul, a, y, "", bo);
-
-	// a = a / z
-	a = BinaryOperator::Create(Instruction::SDiv, a, z, "", bo);
+	
+	// a = b AND c;
+	a = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+	
+	// a = a * -2
+	a = BinaryOperator::Create(Instruction::Mul, a, negTwo, "", bo);
+	
+	// a = a + b
+	a = BinaryOperator::Create(Instruction::Add, a, b, "", bo);
+	
+	// a = a + c
+	a = BinaryOperator::Create(Instruction::Add, a, c, "", bo);
 
 	// Check signed wrap
 	a->setHasNoSignedWrap(bo->hasNoSignedWrap());
