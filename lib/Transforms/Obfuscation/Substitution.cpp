@@ -24,7 +24,7 @@
 #define DEBUG_TYPE "substitution"
 
 #define NUMBER_ADD_SUBST 5
-#define NUMBER_SUB_SUBST 3
+#define NUMBER_SUB_SUBST 4
 #define NUMBER_AND_SUBST 2
 #define NUMBER_OR_SUBST 2
 #define NUMBER_XOR_SUBST 3
@@ -90,6 +90,7 @@ struct Substitution : public FunctionPass {
     funcSub[0] = &Substitution::subNeg;
     funcSub[1] = &Substitution::subRand;
     funcSub[2] = &Substitution::subRand2;
+    funcSub[3] = &Substitution::subAha;
 
     funcAnd[0] = &Substitution::andSubstitution;
     funcAnd[1] = &Substitution::andSubstitutionRand;
@@ -114,6 +115,7 @@ struct Substitution : public FunctionPass {
   void subNeg(BinaryOperator *bo);
   void subRand(BinaryOperator *bo);
   void subRand2(BinaryOperator *bo);
+  void subAha(BinaryOperator *bo);
 
   void andSubstitution(BinaryOperator *bo);
   void andSubstitutionRand(BinaryOperator *bo);
@@ -155,7 +157,7 @@ bool Substitution::substitute(Function *f) {
           case BinaryOperator::Add:
             // case BinaryOperator::FAdd:
             // Substitute with random add operation
-            (this->*funcAdd[/*llvm::cryptoutils->get_range(*/NUMBER_ADD_SUBST-1/*)*/])(
+            (this->*funcAdd[llvm::cryptoutils->get_range(NUMBER_ADD_SUBST)])(
                 cast<BinaryOperator>(inst));
             ++Add;
             break;
@@ -336,6 +338,38 @@ void Substitution::addAha(BinaryOperator *bo) {
 		ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
 		Value *b = bo->getOperand(0);
 		Value *c = bo->getOperand(1);
+		
+		a = BinaryOperator::Create(Instruction::Xor, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::Mul, x, negTwo, "", bo);
+		a = BinaryOperator::Create(Instruction::Sub, a, x, "", bo);
+
+		// Check signed wrap
+		a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+		a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+	}
+	
+	bo->replaceAllUsesWith(a);
+}
+
+// using the aha! method to do sub
+// since we get b XOR c = ((b AND c) * -2) + (b + c)
+// we convert to a = b + -c = (b XOR -c) - ((b AND -c) * -2)
+//
+// a = b XOR -c
+// x = b AND -c
+// x = x * -2
+// a = a - x
+void Substitution::subAha(BinaryOperator *bo) {
+	BinaryOperator *a, *x, *c = NULL;
+	
+	if (bo->getOpcode() == Instruction::Sub) {
+		Type *ty = bo->getType();
+		
+		ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
+		Value *b = bo->getOperand(0);
+		c = BinaryOperator::CreateNeg(bo->getOperand(1), "", bo);
+		
 		
 		a = BinaryOperator::Create(Instruction::Xor, b, c, "", bo);
 		x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
