@@ -18,13 +18,16 @@
 #include "llvm/Transforms/Obfuscation/Utils.h"
 #include "llvm/IR/Intrinsics.h"
 
+#include <stdio.h>
+#include <random>
+
 #define DEBUG_TYPE "substitution"
 
-#define NUMBER_ADD_SUBST 4
-#define NUMBER_SUB_SUBST 3
-#define NUMBER_AND_SUBST 2
+#define NUMBER_ADD_SUBST 5
+#define NUMBER_SUB_SUBST 4
+#define NUMBER_AND_SUBST 3
 #define NUMBER_OR_SUBST 2
-#define NUMBER_XOR_SUBST 2
+#define NUMBER_XOR_SUBST 4
 
 static cl::opt<int>
 ObfTimes("sub-loop",
@@ -82,19 +85,24 @@ struct Substitution : public FunctionPass {
     funcAdd[1] = &Substitution::addDoubleNeg;
     funcAdd[2] = &Substitution::addRand;
     funcAdd[3] = &Substitution::addRand2;
+    funcAdd[4] = &Substitution::addAha;
 
     funcSub[0] = &Substitution::subNeg;
     funcSub[1] = &Substitution::subRand;
     funcSub[2] = &Substitution::subRand2;
+    funcSub[3] = &Substitution::subAha;
 
     funcAnd[0] = &Substitution::andSubstitution;
     funcAnd[1] = &Substitution::andSubstitutionRand;
+    funcAnd[2] = &Substitution::andSubstitutionRandExp;
 
     funcOr[0] = &Substitution::orSubstitution;
     funcOr[1] = &Substitution::orSubstitutionRand;
 
     funcXor[0] = &Substitution::xorSubstitution;
     funcXor[1] = &Substitution::xorSubstitutionRand;
+    funcXor[2] = &Substitution::xorSubstitutionAha;
+    funcXor[3] = &Substitution::xorSubstitutionAhaOpt;
   }
 
   bool runOnFunction(Function &F);
@@ -104,19 +112,24 @@ struct Substitution : public FunctionPass {
   void addDoubleNeg(BinaryOperator *bo);
   void addRand(BinaryOperator *bo);
   void addRand2(BinaryOperator *bo);
+  void addAha(BinaryOperator *bo);
 
   void subNeg(BinaryOperator *bo);
   void subRand(BinaryOperator *bo);
   void subRand2(BinaryOperator *bo);
+  void subAha(BinaryOperator *bo);
 
   void andSubstitution(BinaryOperator *bo);
   void andSubstitutionRand(BinaryOperator *bo);
+  void andSubstitutionRandExp(BinaryOperator *bo);
 
   void orSubstitution(BinaryOperator *bo);
   void orSubstitutionRand(BinaryOperator *bo);
 
   void xorSubstitution(BinaryOperator *bo);
   void xorSubstitutionRand(BinaryOperator *bo);
+  void xorSubstitutionAha(BinaryOperator *bo);
+  void xorSubstitutionAhaOpt(BinaryOperator *bo);
 };
 }
 
@@ -148,14 +161,14 @@ bool Substitution::substitute(Function *f) {
           case BinaryOperator::Add:
             // case BinaryOperator::FAdd:
             // Substitute with random add operation
-            (this->*funcAdd[llvm::cryptoutils->get_range(NUMBER_ADD_SUBST)])(
+            (this->*funcAdd[/*llvm::cryptoutils->get_range(NUMBER_ADD_SUBST)*/4])(
                 cast<BinaryOperator>(inst));
             ++Add;
             break;
           case BinaryOperator::Sub:
             // case BinaryOperator::FSub:
             // Substitute with random sub operation
-            (this->*funcSub[llvm::cryptoutils->get_range(NUMBER_SUB_SUBST)])(
+            (this->*funcSub[/*llvm::cryptoutils->get_range(NUMBER_SUB_SUBST)*/3])(
                 cast<BinaryOperator>(inst));
             ++Sub;
             break;
@@ -184,17 +197,17 @@ bool Substitution::substitute(Function *f) {
             break;
           case Instruction::And:
             (this->*
-             funcAnd[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcAnd[/*llvm::cryptoutils->get_range(NUMBER_AND_SUBST)*/2])(cast<BinaryOperator>(inst));
             ++And;
             break;
           case Instruction::Or:
             (this->*
-             funcOr[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcOr[llvm::cryptoutils->get_range(NUMBER_OR_SUBST)])(cast<BinaryOperator>(inst));
             ++Or;
             break;
           case Instruction::Xor:
             (this->*
-             funcXor[llvm::cryptoutils->get_range(2)])(cast<BinaryOperator>(inst));
+             funcXor[/*llvm::cryptoutils->get_range(NUMBER_XOR_SUBST)*/3])(cast<BinaryOperator>(inst));
             ++Xor;
             break;
           default:
@@ -310,6 +323,67 @@ void Substitution::addRand2(BinaryOperator *bo) {
       op = BinaryOperator::Create(Instruction::FAdd,op,bo->getOperand(1),"",bo);
       op = BinaryOperator::Create(Instruction::FSub,op,co,"",bo);
   } */
+}
+
+// using the aha! method to do add
+// since we get b XOR c = ((b AND c) * -2) + (b + c)
+// we convert to a = b + c = (b XOR c) - ((b AND c) * -2)
+//
+// a = b XOR c
+// x = b AND c
+// x = x + x
+// a = a + x
+void Substitution::addAha(BinaryOperator *bo) {
+	BinaryOperator *a, *x = NULL;
+	
+	if (bo->getOpcode() == Instruction::Add) {
+		Value *b = bo->getOperand(0);
+		Value *c = bo->getOperand(1);
+		
+		a = BinaryOperator::Create(Instruction::Xor, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::Add, x, x, "", bo);
+		a = BinaryOperator::Create(Instruction::Add, a, x, "", bo);
+
+		// Check signed wrap
+		a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+		a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+	}
+	
+	bo->replaceAllUsesWith(a);
+}
+
+// using the aha! method to do sub
+// since we get b XOR c = ((b AND c) * -2) + (b + c)
+// we convert to a = b + -c = (b XOR -c) - ((b AND -c) * -2)
+//
+// c = -c
+// a = b XOR c
+// x = b AND c
+// x = x + x
+// a = a + x
+void Substitution::subAha(BinaryOperator *bo) {
+	BinaryOperator *a, *x, *c = NULL;
+	
+	if (bo->getOpcode() == Instruction::Sub) {
+		Type *ty = bo->getType();
+		
+		ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
+		Value *b = bo->getOperand(0);
+		c = BinaryOperator::CreateNeg(bo->getOperand(1), "", bo);
+		
+		
+		a = BinaryOperator::Create(Instruction::Xor, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+		x = BinaryOperator::Create(Instruction::Add, x, x, "", bo);
+		a = BinaryOperator::Create(Instruction::Add, a, x, "", bo);
+
+		// Check signed wrap
+		a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+		a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+	}
+	
+	bo->replaceAllUsesWith(a);
 }
 
 // Implementation of a = b + (-c)
@@ -443,6 +517,56 @@ void Substitution::andSubstitutionRand(BinaryOperator *bo) {
 
   // We replace all the old AND operators with the new one transformed
   bo->replaceAllUsesWith(op);
+}
+
+// b AND c = (b AND c) OR (r AND !r)
+// 		=  (b OR r) AND (c OR r) AND (b OR !r) AND (c or !r)
+
+// r = rand()
+// s = !r
+// w = b OR r
+// x = c OR r
+// y = b OR s
+// z = c OR s
+// a = w AND x
+// a = a AND y
+// a = a AND z
+void Substitution::andSubstitutionRandExp(BinaryOperator *bo) {
+	BinaryOperator *a, *s, *w, *x, *y, *z = NULL;
+	
+	Type *ty = bo->getType();
+	auto r_val = llvm::cryptoutils->get_uint64_t();
+	ConstantInt *r = (ConstantInt *)ConstantInt::get(ty, r_val);
+	s = BinaryOperator::CreateNot(r, "", bo);
+	Value *b = bo->getOperand(0);
+	Value *c = bo->getOperand(1);
+	
+	// w = b OR r 
+	w = BinaryOperator::Create(Instruction::Or, b, r, "", bo);
+	
+	// x = c OR r
+	x = BinaryOperator::Create(Instruction::Or, c, r, "", bo);
+	
+	// y = b OR s
+	y = BinaryOperator::Create(Instruction::Or, b, s, "", bo);
+	
+	// z = c OR s
+	z = BinaryOperator::Create(Instruction::Or, c, s, "", bo);
+	
+	// a = w AND x
+	a = BinaryOperator::Create(Instruction::And, w, x, "", bo);
+	
+	// a = a AND y
+	a = BinaryOperator::Create(Instruction::And, a, y, "", bo);
+	
+	// a = a AND z
+	a = BinaryOperator::Create(Instruction::And, a, z, "", bo);
+
+	// Check signed wrap
+	a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+	a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+
+	bo->replaceAllUsesWith(a);
 }
 
 // Implementation of a = b | c => a = (b & c) | (b ^ c)
@@ -587,5 +711,75 @@ void Substitution::xorSubstitutionRand(BinaryOperator *bo) {
   // (!a && r) || (a && !r) ^ (!b && r) || (b && !r)
   op = BinaryOperator::Create(Instruction::Xor, op, op1, "", bo);
   bo->replaceAllUsesWith(op);
+}
+
+// XOR substitution using the method found in the Aha! superoptimizer
+// https://yurichev.com/blog/llvm/ 
+// a = b XOR c = ((b AND c) * -2) + b + c
+//
+// a = b AND c;
+// a = a * -2;
+// a = a + b;
+// a = a + c; 
+void Substitution::xorSubstitutionAha(BinaryOperator *bo) {
+	BinaryOperator *a = NULL;
+	Type *ty = bo->getType();
+	
+	ConstantInt *negTwo = (ConstantInt *)ConstantInt::get(ty, -2, true);
+	Value *b = bo->getOperand(0);
+	Value *c = bo->getOperand(1);
+	
+	// a = b AND c;
+	a = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+	
+	// a = a * -2
+	a = BinaryOperator::Create(Instruction::Mul, a, negTwo, "", bo);
+	
+	// a = a + b
+	a = BinaryOperator::Create(Instruction::Add, a, b, "", bo);
+	
+	// a = a + c
+	a = BinaryOperator::Create(Instruction::Add, a, c, "", bo);
+
+	// Check signed wrap
+	a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+	a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+
+	bo->replaceAllUsesWith(a);
+}
+
+// Optimised aha! substitution.
+// Does not use expensive multiply operation
+// a = b XOR c = b + c - 2 * (b AND c) = b + c - ((b AND c) + (b AND c))
+// However we still keep the non-opt version as the mul might be effective at
+// obfuscating as well
+//
+// x = b AND c
+// x = x + x
+// a = b + c
+// a = a - x
+void Substitution::xorSubstitutionAhaOpt(BinaryOperator *bo) {
+	BinaryOperator *a, *x = NULL;
+	
+	Value *b = bo->getOperand(0);
+	Value *c = bo->getOperand(1);
+	
+	// x = b AND c;
+	x = BinaryOperator::Create(Instruction::And, b, c, "", bo);
+	
+	// x = x + x
+	x = BinaryOperator::Create(Instruction::Add, x, x, "", bo);
+	
+	// a = b + c
+	a = BinaryOperator::Create(Instruction::Add, b, c, "", bo);
+	
+	// a = a - x
+	a = BinaryOperator::Create(Instruction::Sub, a, x, "", bo);
+
+	// Check signed wrap
+	a->setHasNoSignedWrap(bo->hasNoSignedWrap());
+	a->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+
+	bo->replaceAllUsesWith(a);
 }
 
