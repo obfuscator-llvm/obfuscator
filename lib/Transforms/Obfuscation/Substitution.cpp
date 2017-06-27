@@ -70,13 +70,6 @@ struct Substitution : public FunctionPass {
   Substitution() : FunctionPass(ID) {}
 
   Substitution(bool flag) : FunctionPass(ID) {
-    // Check if the percentage is correct
-    if (ObfTimes <= 0) {
-      LLVMContext &ctx = llvm::getGlobalContext();
-      ctx.emitError(
-          Twine("Substitution application number -sub-loop=x must be x > 0"));
-    }
-
     this->flag = flag;
     funcAdd[0] = &Substitution::addNeg;
     funcAdd[1] = &Substitution::addDoubleNeg;
@@ -125,6 +118,12 @@ static RegisterPass<Substitution> X("substitution", "operators substitution");
 Pass *llvm::createSubstitution(bool flag) { return new Substitution(flag); }
 
 bool Substitution::runOnFunction(Function &F) {
+   // Check if the percentage is correct
+   if (ObfTimes <= 0) {
+     errs()<<"Substitution application number -sub-loop=x must be x > 0";
+	 return false;
+   }
+
   Function *tmp = &F;
 
   // Do we obfuscate

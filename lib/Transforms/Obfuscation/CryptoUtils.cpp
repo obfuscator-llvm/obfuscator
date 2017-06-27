@@ -547,16 +547,15 @@ unsigned CryptoUtils::scramble32(const unsigned in, const char key[16]) {
   return tmpA ^ tmpB;
 }
 
-void CryptoUtils::prng_seed(const std::string _seed) {
+bool CryptoUtils::prng_seed(const std::string _seed) {
   unsigned char s[16];
   unsigned int i = 0;
 
   /* We accept a prefix "0x" */
   if (!(_seed.size() == 32 || _seed.size() == 34)) {
-    LLVMContext &ctx = llvm::getGlobalContext();
-    ctx.emitError(
-        Twine("The AES-CTR PRNG seeding mechanism is expecting a 16-byte value "
-              "expressed in hexadecimal, like DEAD....BEEF"));
+    errs()<<"The AES-CTR PRNG seeding mechanism is expecting a 16-byte value "
+              "expressed in hexadecimal, like DEAD....BEEF";
+	return false;
   }
 
   seed = _seed;
@@ -589,6 +588,7 @@ void CryptoUtils::prng_seed(const std::string _seed) {
   // cryptographically secure pseudo-random
   // values.
   populate_pool();
+  return true;
 }
 
 CryptoUtils::~CryptoUtils() {
@@ -619,7 +619,7 @@ void CryptoUtils::populate_pool() {
   idx = 0;
 }
 
-void CryptoUtils::prng_seed() {
+bool CryptoUtils::prng_seed() {
 
 #if defined(__linux__)
   std::ifstream devrandom("/dev/urandom");
@@ -627,14 +627,13 @@ void CryptoUtils::prng_seed() {
   std::ifstream devrandom("/dev/random");
 #endif
 
-  LLVMContext &ctx = llvm::getGlobalContext();
-
   if (devrandom) {
 
     devrandom.read(key, 16);
 
     if (devrandom.gcount() != 16) {
-      ctx.emitError(Twine("Cannot read enough bytes in /dev/random"));
+      errs()<<"Cannot read enough bytes in /dev/random";
+	  return false;
     }
 
     devrandom.close();
@@ -648,8 +647,10 @@ void CryptoUtils::prng_seed() {
 
     seeded = true;
   } else {
-    ctx.emitError(Twine("Cannot open /dev/random"));
+    errs()<<"Cannot open /dev/random";
+	return false;
   }
+  return true;
 }
 
 void CryptoUtils::inc_ctr() {

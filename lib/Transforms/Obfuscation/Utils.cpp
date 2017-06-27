@@ -20,7 +20,7 @@ void fixStack(Function *f) {
   // Try to remove phi node and demote reg to stack
   std::vector<PHINode *> tmpPhi;
   std::vector<Instruction *> tmpReg;
-  BasicBlock *bbEntry = f->begin();
+  BasicBlock *bbEntry = &*f->begin();
 
   do {
     tmpPhi.clear();
@@ -36,8 +36,8 @@ void fixStack(Function *f) {
           continue;
         }
         if (!(isa<AllocaInst>(j) && j->getParent() == bbEntry) &&
-            (valueEscapes(j) || j->isUsedOutsideOfBlock(i))) {
-          tmpReg.push_back(j);
+            (valueEscapes(&*j) || j->isUsedOutsideOfBlock(&*i))) {
+          tmpReg.push_back(&*j);
           continue;
         }
       }

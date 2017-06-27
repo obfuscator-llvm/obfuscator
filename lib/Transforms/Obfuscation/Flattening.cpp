@@ -80,10 +80,10 @@ bool Flattening::flatten(Function *f) {
 
   // Save all original BB
   for (Function::iterator i = f->begin(); i != f->end(); ++i) {
-    BasicBlock *tmp = i;
+    BasicBlock *tmp = &*i;
     origBB.push_back(tmp);
 
-    BasicBlock *bb = i;
+    BasicBlock *bb = &*i;
     if (isa<InvokeInst>(bb->getTerminator())) {
       return false;
     }
@@ -99,7 +99,7 @@ bool Flattening::flatten(Function *f) {
 
   // Get a pointer on the first BB
   Function::iterator tmp = f->begin();  //++tmp;
-  BasicBlock *insert = tmp;
+  BasicBlock *insert = &*tmp;
 
   // If main begin with an if
   BranchInst *br = NULL;
@@ -109,10 +109,11 @@ bool Flattening::flatten(Function *f) {
 
   if ((br != NULL && br->isConditional()) ||
       insert->getTerminator()->getNumSuccessors() > 1) {
-    BasicBlock::iterator i = insert->back();
+    BasicBlock::iterator i = insert->end();
+	--i;
 
     if (insert->size() > 1) {
-      i--;
+      --i;
     }
 
     BasicBlock *tmpBB = insert->splitBasicBlock(i, "first");
@@ -148,13 +149,13 @@ bool Flattening::flatten(Function *f) {
   BranchInst::Create(loopEnd, swDefault);
 
   // Create switch instruction itself and set condition
-  switchI = SwitchInst::Create(f->begin(), swDefault, 0, loopEntry);
+  switchI = SwitchInst::Create(&*f->begin(), swDefault, 0, loopEntry);
   switchI->setCondition(load);
 
   // Remove branch jump from 1st BB and make a jump to the while
   f->begin()->getTerminator()->eraseFromParent();
 
-  BranchInst::Create(loopEntry, f->begin());
+  BranchInst::Create(loopEntry, &*f->begin());
 
   // Put all BB in the switch
   for (vector<BasicBlock *>::iterator b = origBB.begin(); b != origBB.end();

@@ -127,14 +127,14 @@ namespace {
     virtual bool runOnFunction(Function &F){
       // Check if the percentage is correct
       if (ObfTimes <= 0) {
-        LLVMContext &ctx = llvm::getGlobalContext();
-        ctx.emitError(Twine ("BogusControlFlow application number -boguscf-loop=x must be x > 0"));
+        errs()<<"BogusControlFlow application number -boguscf-loop=x must be x > 0";
+		return false;
       }
 
       // Check if the number of applications is correct
       if ( !((ObfProbRate > 0) && (ObfProbRate <= 100)) ) {
-        LLVMContext &ctx = llvm::getGlobalContext();
-        ctx.emitError(Twine ("BogusControlFlow application basic blocks percentage -boguscf-prob=x must be 0 < x <= 100"));
+        errs()<<"BogusControlFlow application basic blocks percentage -boguscf-prob=x must be 0 < x <= 100";
+		return false;
       }
 
       // If fla annotations
@@ -180,7 +180,7 @@ namespace {
           // Put all the function's block in a list
           std::list<BasicBlock *> basicBlocks;
           for (Function::iterator i=F.begin();i!=F.end();++i) {
-            basicBlocks.push_back((BasicBlock *)i);
+            basicBlocks.push_back((BasicBlock *)&i);
           }
           DEBUG_WITH_TYPE("gen", errs() << "bcf: Iterating on the Function's Basic Blocks\n");
 
@@ -238,7 +238,7 @@ namespace {
       // actually are updated in the second part according to them.
       BasicBlock::iterator i1 = basicBlock->begin();
       if(basicBlock->getFirstNonPHIOrDbgOrLifetime())
-        i1 = basicBlock->getFirstNonPHIOrDbgOrLifetime();
+        i1 = (BasicBlock::iterator)basicBlock->getFirstNonPHIOrDbgOrLifetime();
       Twine *var;
       var = new Twine("originalBB");
       BasicBlock *originalBB = basicBlock->splitBasicBlock(i1, *var);
@@ -380,19 +380,19 @@ namespace {
               switch(llvm::cryptoutils->get_range(4)){ // to improve
                 case 0: //do nothing
                   break;
-                case 1: op = BinaryOperator::CreateNeg(i->getOperand(0),*var,i);
+                case 1: op = BinaryOperator::CreateNeg(i->getOperand(0),*var,&*i);
                         op1 = BinaryOperator::Create(Instruction::Add,op,
-                            i->getOperand(1),"gen",i);
+                            i->getOperand(1),"gen",&*i);
                         break;
                 case 2: op1 = BinaryOperator::Create(Instruction::Sub,
                             i->getOperand(0),
-                            i->getOperand(1),*var,i);
+                            i->getOperand(1),*var,&*i);
                         op = BinaryOperator::Create(Instruction::Mul,op1,
-                            i->getOperand(1),"gen",i);
+                            i->getOperand(1),"gen",&*i);
                         break;
                 case 3: op = BinaryOperator::Create(Instruction::Shl,
                             i->getOperand(0),
-                            i->getOperand(1),*var,i);
+                            i->getOperand(1),*var,&*i);
                         break;
               }
             }
@@ -405,15 +405,15 @@ namespace {
               switch(llvm::cryptoutils->get_range(3)){ // can be improved
                 case 0: //do nothing
                   break;
-                case 1: op = BinaryOperator::CreateFNeg(i->getOperand(0),*var,i);
+                case 1: op = BinaryOperator::CreateFNeg(i->getOperand(0),*var,&*i);
                         op1 = BinaryOperator::Create(Instruction::FAdd,op,
-                            i->getOperand(1),"gen",i);
+                            i->getOperand(1),"gen",&*i);
                         break;
                 case 2: op = BinaryOperator::Create(Instruction::FSub,
                             i->getOperand(0),
-                            i->getOperand(1),*var,i);
+                            i->getOperand(1),*var,&*i);
                         op1 = BinaryOperator::Create(Instruction::FMul,op,
-                            i->getOperand(1),"gen",i);
+                            i->getOperand(1),"gen",&*i);
                         break;
               }
             }

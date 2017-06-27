@@ -201,7 +201,8 @@ PassManagerBuilder::PassManagerBuilder() {
     // Initialization of the global cryptographically
     // secure pseudo-random generator
     if(!AesSeed.empty()) {
-        llvm::cryptoutils->prng_seed(AesSeed.c_str());
+        if(!llvm::cryptoutils->prng_seed(AesSeed.c_str()))
+			exit(1);
     }
 }
 

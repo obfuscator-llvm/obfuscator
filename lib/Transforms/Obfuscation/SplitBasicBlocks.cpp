@@ -46,13 +46,7 @@ struct SplitBasicBlock : public FunctionPass {
 
   SplitBasicBlock() : FunctionPass(ID) {}
   SplitBasicBlock(bool flag) : FunctionPass(ID) {
-    // Check if the number of applications is correct
-    if (!((SplitNum > 1) && (SplitNum <= 10))) {
-      LLVMContext &ctx = llvm::getGlobalContext();
-      ctx.emitError(Twine("Split application basic block percentage\
-              -perBB=x must be 1 < x <= 10"));
-    }
-
+    
     this->flag = flag;
   }
 
@@ -72,7 +66,15 @@ Pass *llvm::createSplitBasicBlock(bool flag) {
 }
 
 bool SplitBasicBlock::runOnFunction(Function &F) {
+  // Check if the number of applications is correct
+  if (!((SplitNum > 1) && (SplitNum <= 10))) {
+    errs()<<"Split application basic block percentage\
+            -perBB=x must be 1 < x <= 10";
+    return false;
+  }
+
   Function *tmp = &F;
+
 
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "split")) {
@@ -89,7 +91,7 @@ void SplitBasicBlock::split(Function *f) {
 
   // Save all basic blocks
   for (Function::iterator I = f->begin(), IE = f->end(); I != IE; ++I) {
-    origBB.push_back(I);
+    origBB.push_back(&*I);
   }
 
   for (std::vector<BasicBlock *>::iterator I = origBB.begin(),
