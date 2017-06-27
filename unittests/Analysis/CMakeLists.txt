@@ -1,0 +1,21 @@
+set(LLVM_LINK_COMPONENTS
+  Analysis
+  AsmParser
+  Core
+  Support
+  )
+
+add_llvm_unittest(AnalysisTests
+  AliasAnalysisTest.cpp
+  BlockFrequencyInfoTest.cpp
+  BranchProbabilityInfoTest.cpp
+  CallGraphTest.cpp
+  CFGTest.cpp
+  CGSCCPassManagerTest.cpp
+  LazyCallGraphTest.cpp
+  MemoryBuiltinsTest.cpp
+  ScalarEvolutionTest.cpp
+  TBAATest.cpp
+  ValueTrackingTest.cpp
+  UnrollAnalyzer.cpp
+  )

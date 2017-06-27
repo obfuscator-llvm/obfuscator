@@ -1,0 +1,23 @@
+set(LLVM_LINK_COMPONENTS
+  Core
+  ExecutionEngine
+  MC
+  MCJIT
+  Support
+  native
+  )
+
+add_clang_executable(clang-interpreter
+  main.cpp
+  )
+
+add_dependencies(clang-interpreter
+  clang-headers
+  )
+
+target_link_libraries(clang-interpreter
+  clangBasic
+  clangCodeGen
+  clangDriver
+  clangFrontend
+  )
