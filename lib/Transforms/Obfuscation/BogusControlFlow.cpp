@@ -180,7 +180,7 @@ namespace {
           // Put all the function's block in a list
           std::list<BasicBlock *> basicBlocks;
           for (Function::iterator i=F.begin();i!=F.end();++i) {
-            basicBlocks.push_back((BasicBlock *)&i);
+            basicBlocks.push_back(&*i);
           }
           DEBUG_WITH_TYPE("gen", errs() << "bcf: Iterating on the Function's Basic Blocks\n");
 
