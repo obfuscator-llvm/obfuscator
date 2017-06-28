@@ -49,7 +49,7 @@ projects/*
 runtimes/*
 !runtimes/*.*
 # Clang, which is tracked independently.
-tools/clang
+#tools/clang
 # LLDB, which is tracked independently.
 tools/lldb
 # lld, which is tracked independently.
