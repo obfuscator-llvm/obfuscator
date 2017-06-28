@@ -2,7 +2,7 @@ Currently the open-source version of Obfuscator-LLVM is under maintenance since 
 
 Please have a look at the [wiki](https://github.com/obfuscator-llvm/obfuscator/wiki)!
 
-Current version: [LLVM-3.6.1](https://github.com/obfuscator-llvm/obfuscator/tree/llvm-3.6.1)
+Current version: [LLVM-4.0](https://github.com/obfuscator-llvm/obfuscator/tree/llvm-4.0)
 
 You can cite Obfuscator-LLVM using the following Bibtex entry:
 
