@@ -27,23 +27,10 @@
 #define NUMBER_XOR_SUBST 2
 
 static cl::opt<int>
-ObfTimes("sub-loop",
+ObfTimes("sub_loop",
          cl::desc("Choose how many time the -sub pass loops on a function"),
          cl::value_desc("number of times"), cl::init(1), cl::Optional);
 
-/*
-static cl::opt<string> FunctionName(
-    "funcSUB", cl::init(""),
-    cl::desc(
-        "Substitute only certain functions: -mllvm -funcSUB=\"func1,func2\""));
-*/
-
-/*
-static cl::opt<int>
-Percentage("perSUB", cl::init(100),
-           cl::desc("Substitute only a certain percentage [%] "
-                    "of functions: -mllvm -perSUB=10"));
-*/
 
 // Stats
 STATISTIC(Add, "Add substitued");
@@ -125,7 +112,6 @@ bool Substitution::runOnFunction(Function &F) {
    }
 
   Function *tmp = &F;
-
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "sub")) {
     substitute(tmp);

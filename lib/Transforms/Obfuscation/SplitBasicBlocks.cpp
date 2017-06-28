@@ -23,21 +23,8 @@ using namespace std;
 // Stats
 STATISTIC(Split, "Basicblock splitted");
 
-static cl::opt<int> SplitNum("splitNum", cl::init(2),
+static cl::opt<int> SplitNum("split_num", cl::init(2),
                              cl::desc("Split perBB time each BB"));
-
-/*
-static cl::opt<string> FunctionName(
-    "funcSPLIT", cl::init(""),
-    cl::desc(
-        "Flatten only certain functions: -mllvm -funcFLA=\"func1,func2\""));
-*/
-
-/*
-static cl::opt<int>
-Percentage("perSPLIT", cl::init(100),
-           cl::desc("Flatten only a certain percentage of functions"));
-*/
 
 namespace {
 struct SplitBasicBlock : public FunctionPass {
@@ -74,7 +61,6 @@ bool SplitBasicBlock::runOnFunction(Function &F) {
   }
 
   Function *tmp = &F;
-
 
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "split")) {

@@ -22,15 +22,6 @@ using namespace llvm;
 // Stats
 STATISTIC(Flattened, "Functions flattened");
 
-static cl::opt<string> FunctionName(
-    "funcFLA", cl::init(""),
-    cl::desc(
-        "Flatten only certain functions: -mllvm -funcFLA=\"func1,func2\""));
-
-static cl::opt<int> Percentage(
-    "perFLA", cl::init(100),
-    cl::desc("Flatten only a certain percentage of functions"));
-
 namespace {
 struct Flattening : public FunctionPass {
   static char ID;  // Pass identification, replacement for typeid
@@ -50,7 +41,6 @@ Pass *llvm::createFlattening(bool flag) { return new Flattening(flag); }
 
 bool Flattening::runOnFunction(Function &F) {
   Function *tmp = &F;
-
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "fla")) {
     if (flatten(tmp)) {

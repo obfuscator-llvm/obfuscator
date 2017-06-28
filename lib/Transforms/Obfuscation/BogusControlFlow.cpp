@@ -107,10 +107,10 @@ STATISTIC(FinalNumBasicBlocks,  "f. Final number of basic blocks in this module"
 const int defaultObfRate = 30, defaultObfTime = 1;
 
 static cl::opt<int>
-ObfProbRate("boguscf-prob", cl::desc("Choose the probability [%] each basic blocks will be obfuscated by the -bcf pass"), cl::value_desc("probability rate"), cl::init(defaultObfRate), cl::Optional);
+ObfProbRate("bcf_prob", cl::desc("Choose the probability [%] each basic blocks will be obfuscated by the -bcf pass"), cl::value_desc("probability rate"), cl::init(defaultObfRate), cl::Optional);
 
 static cl::opt<int>
-ObfTimes("boguscf-loop", cl::desc("Choose how many time the -bcf pass loop on a function"), cl::value_desc("number of times"), cl::init(defaultObfTime), cl::Optional);
+ObfTimes("bcf_loop", cl::desc("Choose how many time the -bcf pass loop on a function"), cl::value_desc("number of times"), cl::init(defaultObfTime), cl::Optional);
 
 namespace {
   struct BogusControlFlow : public FunctionPass {
@@ -136,7 +136,6 @@ namespace {
         errs()<<"BogusControlFlow application basic blocks percentage -boguscf-prob=x must be 0 < x <= 100";
 		return false;
       }
-
       // If fla annotations
       if(toObfuscate(flag,&F,"bcf")) {
         bogus(F);

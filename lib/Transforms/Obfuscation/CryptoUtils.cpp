@@ -554,7 +554,7 @@ bool CryptoUtils::prng_seed(const std::string _seed) {
   /* We accept a prefix "0x" */
   if (!(_seed.size() == 32 || _seed.size() == 34)) {
     errs()<<"The AES-CTR PRNG seeding mechanism is expecting a 16-byte value "
-              "expressed in hexadecimal, like DEAD....BEEF";
+              "expressed in hexadecimal, like DEAD....BEEF\n";
 	return false;
   }
 
@@ -565,9 +565,10 @@ bool CryptoUtils::prng_seed(const std::string _seed) {
     i = 2;
   }
 
-  for (; i < _seed.length(); i += 2) {
+
+  for (unsigned int j=0; i < _seed.size(); i += 2, j++) {
     std::string byte = _seed.substr(i, 2);
-    s[i >> 1] = (unsigned char)(int)strtol(byte.c_str(), NULL, 16);
+    s[j] = (unsigned char)(int)strtol(byte.c_str(), NULL, 16);
   }
 
   // _seed is defined to be the
@@ -632,7 +633,7 @@ bool CryptoUtils::prng_seed() {
     devrandom.read(key, 16);
 
     if (devrandom.gcount() != 16) {
-      errs()<<"Cannot read enough bytes in /dev/random";
+      errs()<<"Cannot read enough bytes in /dev/random\n";
 	  return false;
     }
 
@@ -647,7 +648,7 @@ bool CryptoUtils::prng_seed() {
 
     seeded = true;
   } else {
-    errs()<<"Cannot open /dev/random";
+    errs()<<"Cannot open /dev/random\n";
 	return false;
   }
   return true;
