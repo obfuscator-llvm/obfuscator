@@ -127,13 +127,13 @@ namespace {
     virtual bool runOnFunction(Function &F){
       // Check if the percentage is correct
       if (ObfTimes <= 0) {
-        errs()<<"BogusControlFlow application number -boguscf-loop=x must be x > 0";
+        errs()<<"BogusControlFlow application number -bcf_loop=x must be x > 0";
 		return false;
       }
 
       // Check if the number of applications is correct
       if ( !((ObfProbRate > 0) && (ObfProbRate <= 100)) ) {
-        errs()<<"BogusControlFlow application basic blocks percentage -boguscf-prob=x must be 0 < x <= 100";
+        errs()<<"BogusControlFlow application basic blocks percentage -bcf_prob=x must be 0 < x <= 100";
 		return false;
       }
       // If fla annotations

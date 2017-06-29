@@ -24,7 +24,7 @@ using namespace std;
 STATISTIC(Split, "Basicblock splitted");
 
 static cl::opt<int> SplitNum("split_num", cl::init(2),
-                             cl::desc("Split perBB time each BB"));
+                             cl::desc("Split <split_num> time each BB"));
 
 namespace {
 struct SplitBasicBlock : public FunctionPass {
@@ -46,7 +46,7 @@ struct SplitBasicBlock : public FunctionPass {
 }
 
 char SplitBasicBlock::ID = 0;
-static RegisterPass<SplitBasicBlock> X("split", "BasicBlock splitting");
+static RegisterPass<SplitBasicBlock> X("splitbbl", "BasicBlock splitting");
 
 Pass *llvm::createSplitBasicBlock(bool flag) {
   return new SplitBasicBlock(flag);
@@ -56,7 +56,7 @@ bool SplitBasicBlock::runOnFunction(Function &F) {
   // Check if the number of applications is correct
   if (!((SplitNum > 1) && (SplitNum <= 10))) {
     errs()<<"Split application basic block percentage\
-            -perBB=x must be 1 < x <= 10";
+            -split_num=x must be 1 < x <= 10";
     return false;
   }
 
