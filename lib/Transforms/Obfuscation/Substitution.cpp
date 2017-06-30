@@ -115,6 +115,7 @@ bool Substitution::runOnFunction(Function &F) {
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "sub")) {
     substitute(tmp);
+	return true;
   }
 
   return false;
@@ -203,15 +204,15 @@ void Substitution::addNeg(BinaryOperator *bo) {
         BinaryOperator::Create(Instruction::Sub, bo->getOperand(0), op, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
-  } else {
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+
+    bo->replaceAllUsesWith(op);
+  }/* else {
     op = BinaryOperator::CreateFNeg(bo->getOperand(1), "", bo);
     op = BinaryOperator::Create(Instruction::FSub, bo->getOperand(0), op, "",
                                 bo);
-  }
-
-  bo->replaceAllUsesWith(op);
+  }*/
 }
 
 // Implementation of a = -(-b + (-c))
@@ -225,8 +226,8 @@ void Substitution::addDoubleNeg(BinaryOperator *bo) {
     op = BinaryOperator::CreateNeg(op, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
   } else {
     op = BinaryOperator::CreateFNeg(bo->getOperand(0), "", bo);
     op2 = BinaryOperator::CreateFNeg(bo->getOperand(1), "", bo);
@@ -252,8 +253,8 @@ void Substitution::addRand(BinaryOperator *bo) {
     op = BinaryOperator::Create(Instruction::Sub, op, co, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
 
     bo->replaceAllUsesWith(op);
   }
@@ -282,8 +283,8 @@ void Substitution::addRand2(BinaryOperator *bo) {
     op = BinaryOperator::Create(Instruction::Add, op, co, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
 
     bo->replaceAllUsesWith(op);
   }
@@ -307,8 +308,8 @@ void Substitution::subNeg(BinaryOperator *bo) {
         BinaryOperator::Create(Instruction::Add, bo->getOperand(0), op, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
   } else {
     op = BinaryOperator::CreateFNeg(bo->getOperand(1), "", bo);
     op = BinaryOperator::Create(Instruction::FAdd, bo->getOperand(0), op, "",
@@ -333,8 +334,8 @@ void Substitution::subRand(BinaryOperator *bo) {
     op = BinaryOperator::Create(Instruction::Sub, op, co, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
 
     bo->replaceAllUsesWith(op);
   }
@@ -363,8 +364,8 @@ void Substitution::subRand2(BinaryOperator *bo) {
     op = BinaryOperator::Create(Instruction::Add, op, co, "", bo);
 
     // Check signed wrap
-    op->setHasNoSignedWrap(bo->hasNoSignedWrap());
-    op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
+    //op->setHasNoSignedWrap(bo->hasNoSignedWrap());
+    //op->setHasNoUnsignedWrap(bo->hasNoUnsignedWrap());
 
     bo->replaceAllUsesWith(op);
   }
