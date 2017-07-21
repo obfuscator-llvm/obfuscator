@@ -54,9 +54,9 @@ Pass *llvm::createSplitBasicBlock(bool flag) {
 
 bool SplitBasicBlock::runOnFunction(Function &F) {
   // Check if the number of applications is correct
-  if (!((SplitNum > 1) && (SplitNum <= 10))) {
-    errs()<<"Split application basic block percentage\
-            -split_num=x must be 1 < x <= 10";
+  if (!((SplitNum >= 1) && (SplitNum <= 10))) {
+    errs()<<"Split application basic block x times\
+            -split_num=x must be 1 <= x <= 10";
     return false;
   }
 
