@@ -235,9 +235,9 @@ namespace {
       // We do this way, so we don't have to adjust all the phi nodes, metadatas and so on
       // for the first block. We have to let the phi nodes in the first part, because they
       // actually are updated in the second part according to them.
-      BasicBlock::iterator i1 = basicBlock->begin();
+      Instruction *i1 = &*basicBlock->begin();
       if(basicBlock->getFirstNonPHIOrDbgOrLifetime())
-        i1 = (BasicBlock::iterator)basicBlock->getFirstNonPHIOrDbgOrLifetime();
+        i1 = basicBlock->getFirstNonPHIOrDbgOrLifetime();
       Twine *var;
       var = new Twine("originalBB");
       BasicBlock *originalBB = basicBlock->splitBasicBlock(i1, *var);
@@ -326,7 +326,7 @@ namespace {
         // Loop over the operands of the instruction
         for(User::op_iterator opi = i->op_begin (), ope = i->op_end(); opi != ope; ++opi){
           // get the value for the operand
-          Value *v = MapValue(*opi, VMap,  RF_None, 0);
+          Value *v = MapValue(*opi, VMap,  RF_NoModuleLevelChanges, 0);
           if (v != 0){
             *opi = v;
             DEBUG_WITH_TYPE("gen", errs() << "bcf: Value's operand has been setted\n");
