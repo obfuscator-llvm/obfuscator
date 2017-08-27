@@ -136,6 +136,14 @@ namespace {
         errs()<<"BogusControlFlow application basic blocks percentage -bcf_prob=x must be 0 < x <= 100";
 		return false;
       }
+      std::vector<BasicBlock *> orginalBBs;
+      // check for compatible
+      for (BasicBlock &bb : F.getBasicBlockList()) {
+          if (isa<InvokeInst>(bb.getTerminator())) {
+              return false;
+          }
+      }
+
       // If fla annotations
       if(toObfuscate(flag,&F,"bcf")) {
         bogus(F);
