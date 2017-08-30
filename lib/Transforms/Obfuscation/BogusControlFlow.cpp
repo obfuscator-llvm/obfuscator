@@ -138,13 +138,25 @@ namespace {
       }
       // If fla annotations
       if(toObfuscate(flag,&F,"bcf")) {
-        bogus(F);
-        doF(*F.getParent());
-        return true;
+        if (isInvoke(&F)) {
+          bogus(F);
+          doF(*F.getParent());
+          return true;
+        }
       }
 
       return false;
     } // end of runOnFunction()
+
+    bool isInvoke(Function *f) {
+      for (Function::iterator i = f->begin(); i != f->end(); ++i) {
+          BasicBlock *bb = &*i;
+          if (isa<InvokeInst>(bb->getTerminator())) {
+              return false;
+          }
+      }
+      return true;
+    }
 
     void bogus(Function &F) {
       // For statistics and debug
