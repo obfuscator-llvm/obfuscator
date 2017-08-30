@@ -5,6 +5,7 @@ add_llvm_library(LLVMObfuscation
   Utils.cpp
   SplitBasicBlocks.cpp
   Flattening.cpp
+  StringObfuscation.cpp
   )
 
 add_dependencies(LLVMObfuscation intrinsics_gen)

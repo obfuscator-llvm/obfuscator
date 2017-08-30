@@ -43,6 +43,7 @@
 #include "llvm/Transforms/Obfuscation/Flattening.h"
 #include "llvm/Transforms/Obfuscation/Split.h"
 #include "llvm/Transforms/Obfuscation/Substitution.h"
+#include "llvm/Transforms/Obfuscation/StringObfuscation.h"
 #include "llvm/CryptoUtils.h"
 
 
@@ -172,6 +173,11 @@ static cl::opt<std::string> AesSeed("aesSeed", cl::init(""),
 static cl::opt<bool> Split("split", cl::init(false),
                            cl::desc("Enable basic block splitting"));
 
+static cl::opt<std::string> Seed("seed", cl::init(""),
+                           cl::desc("seed for the random"));
+
+static cl::opt<bool> StringObf("sobf", cl::init(false),
+                           cl::desc("Enable the string obfuscation"));
 
 
 PassManagerBuilder::PassManagerBuilder() {
@@ -203,6 +209,10 @@ PassManagerBuilder::PassManagerBuilder() {
     if(!AesSeed.empty()) {
         if(!llvm::cryptoutils->prng_seed(AesSeed.c_str()))
 			exit(1);
+    }
+
+    if(!Seed.empty()) {
+      llvm::cryptoutils->prng_seed(Seed.c_str());
     }
 }
 
@@ -428,6 +438,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createSplitBasicBlock(Split));
   MPM.add(createBogus(BogusControlFlow));
   MPM.add(createFlattening(Flattening));
+  MPM.add(createStringObfuscation(StringObf));
 
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
