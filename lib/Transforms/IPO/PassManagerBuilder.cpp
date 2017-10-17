@@ -25,6 +25,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Obfuscation/StringEncryption.h"
 
 #include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
 #include "llvm/Transforms/Obfuscation/Flattening.h"
@@ -75,6 +76,9 @@ static cl::opt<bool> Substitution("sub", cl::init(false),
 
 static cl::opt<std::string> AesSeed("aesSeed", cl::init(""),
                                     cl::desc("seed for the AES-CTR PRNG"));
+static cl::opt<bool>
+StringEncryption("xse",cl::init(false),cl::desc("Enable string encryptions"));
+
 
 static cl::opt<bool> Split("spli", cl::init(false),
                            cl::desc("Enable basic block splitting"));
@@ -178,9 +182,13 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 
     MPM.add(createSubstitution(Substitution));
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
+    if(StringEncryption) MPM.add(createXorStringEncryption());
+        
     return;
   }
 
+  if(StringEncryption) MPM.add(createXorStringEncryption());
+  
   // Add LibraryInfo if we have some.
   if (LibraryInfo) MPM.add(new TargetLibraryInfo(*LibraryInfo));
 
