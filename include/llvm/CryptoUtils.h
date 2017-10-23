@@ -32,7 +32,7 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define BYTE(x, n) (((x) >> (8 * (n))) & 0xFF)
 
 #if defined(__i386) || defined(__i386__) || defined(_M_IX86) ||                \
-    defined(INTEL_CC)
+    defined(INTEL_CC) || defined(_WIN64) || defined(_WIN32)
 
 #ifndef ENDIAN_LITTLE
 #define ENDIAN_LITTLE
