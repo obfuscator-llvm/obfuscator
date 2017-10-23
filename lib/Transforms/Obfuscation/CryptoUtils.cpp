@@ -620,10 +620,44 @@ void CryptoUtils::populate_pool() {
   idx = 0;
 }
 
+#include <time.h>
+class WinDevRandom
+{
+public:
+	WinDevRandom() {}
+	~WinDevRandom() {}
+
+	size_t read(char *key, size_t sz) {
+		time_t tm = time(NULL);
+		size_t msz = std::min(sz, sizeof(tm));
+		memcpy(key, &tm, msz);
+		if (sz > sizeof(tm)) {
+			memcpy(key + msz, this, sz - msz);
+		}
+		m_last_read = sz;
+		return sz;
+	}
+
+	void close() {}
+
+	size_t gcount() {
+		return m_last_read;
+	}
+
+	explicit operator bool() {
+		return true;
+	}
+
+private:
+	size_t m_last_read;
+};
+
 bool CryptoUtils::prng_seed() {
 
 #if defined(__linux__)
   std::ifstream devrandom("/dev/urandom");
+#elif defined(_WIN32)
+	WinDevRandom devrandom;
 #else
   std::ifstream devrandom("/dev/random");
 #endif
