@@ -555,7 +555,7 @@ bool CryptoUtils::prng_seed(const std::string _seed) {
   if (!(_seed.size() == 32 || _seed.size() == 34)) {
     errs()<<"The AES-CTR PRNG seeding mechanism is expecting a 16-byte value "
               "expressed in hexadecimal, like DEAD....BEEF\n";
-	return false;
+    return false;
   }
 
   seed = _seed;
@@ -620,37 +620,93 @@ void CryptoUtils::populate_pool() {
   idx = 0;
 }
 
+#if defined(_WIN64) || defined(_WIN32)
+#include <windows.h>
+#include <wincrypt.h>
+struct WinDevRandom {
+  WinDevRandom() : m_hcryptProv{0}, m_last_read{0} {
+    assert(!m_hcryptProv);
+    if (!CryptAcquireContext(&m_hcryptProv, nullptr, nullptr, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+      errs() << "CryptAcquireContext failed (LastError: " << GetLastError() << ")\n";
+    } else {
+      assert(m_hcryptProv);
+    }
+  }
+
+  ~WinDevRandom() {
+    close();
+  }
+
+  std::size_t read(char *key, std::size_t sz) {
+    assert(m_hcryptProv);
+    if (!CryptGenRandom(m_hcryptProv, sz, reinterpret_cast<BYTE*>(key))) {
+      errs() << "CryptGenRandom failed (LastError: " << GetLastError() << ")\n";
+    }
+    m_last_read = sz;
+    return sz;
+  }
+
+  void close() {
+    if (m_hcryptProv && !CryptReleaseContext(m_hcryptProv, 0)) {
+      errs() << "CryptReleaseContext failed (LastError: " << GetLastError() << ")\n";
+    }
+    m_hcryptProv = 0;
+    assert(!m_hcryptProv);
+  }
+
+  std::size_t gcount() {
+    return m_last_read;
+  }
+
+  explicit operator bool() {
+    return true;
+  }
+
+  bool good() const {
+    return m_hcryptProv;
+  }
+
+private:
+  HCRYPTPROV m_hcryptProv;
+  std::size_t m_last_read;
+};
+#endif
+
 bool CryptoUtils::prng_seed() {
 
 #if defined(__linux__)
-  std::ifstream devrandom("/dev/urandom");
+  std::string const dev = "/dev/urandom";
+  std::ifstream devrandom(dev);
+#elif defined(_WIN64) || defined(_WIN32)
+  std::string const dev = "CryptGenRandom";
+  WinDevRandom devrandom;
 #else
-  std::ifstream devrandom("/dev/random");
+  std::string const dev = "/dev/random";
+  std::ifstream devrandom(dev);
 #endif
 
-  if (devrandom) {
-
-    devrandom.read(key, 16);
-
-    if (devrandom.gcount() != 16) {
-      errs()<<"Cannot read enough bytes in /dev/random\n";
-	  return false;
-    }
-
-    devrandom.close();
-    DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with /dev/random\n");
-
-    memset(ctr, 0, 16);
-
-    // Once the seed is there, we compute the
-    // AES128 key-schedule
-    aes_compute_ks(ks, key);
-
-    seeded = true;
-  } else {
-    errs()<<"Cannot open /dev/random\n";
-	return false;
+  if (!devrandom.good()) {
+    errs() << "Cannot open " << dev << "\n";
+    return false;
   }
+
+  devrandom.read(key, 16);
+  auto const gc = devrandom.gcount();
+  if (gc != 16) {
+    errs() << "Cannot read enough bytes got=" << gc << " want=16";
+	  return false;
+  }
+
+  devrandom.close();
+  DEBUG_WITH_TYPE("cryptoutils", dbgs() << "cryptoutils seeded with " << dev << "\n");
+
+  std::memset(ctr, 0, 16);
+
+  // Once the seed is there, we compute the
+  // AES128 key-schedule
+  aes_compute_ks(ks, key);
+
+  seeded = true;
   return true;
 }
 
