@@ -115,7 +115,7 @@ bool Substitution::runOnFunction(Function &F) {
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "sub")) {
     substitute(tmp);
-	return true;
+	  return true;
   }
 
   return false;
