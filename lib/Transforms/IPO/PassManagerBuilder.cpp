@@ -40,6 +40,11 @@
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Obfuscation/BogusControlFlow.h"
+#include "llvm/Transforms/Obfuscation/Flattening.h"
+#include "llvm/Transforms/Obfuscation/Split.h"
+#include "llvm/Transforms/Obfuscation/Substitution.h"
+#include "llvm/CryptoUtils.h"
 
 using namespace llvm;
 
@@ -151,6 +156,22 @@ static cl::opt<bool>
                              cl::Hidden,
                              cl::desc("Enable the simple loop unswitch pass."));
 
+// Flags for obfuscation
+static cl::opt<bool> Flattening("fla", cl::init(false),
+                                cl::desc("Enable the flattening pass"));
+
+static cl::opt<bool> BogusControlFlow("bcf", cl::init(false),
+                                      cl::desc("Enable bogus control flow"));
+
+static cl::opt<bool> Substitution("sub", cl::init(false),
+                                  cl::desc("Enable instruction substitutions"));
+
+static cl::opt<std::string> AesSeed("aesSeed", cl::init(""),
+                                    cl::desc("seed for the AES-CTR PRNG"));
+
+static cl::opt<bool> Split("spli", cl::init(false),
+                           cl::desc("Enable basic block splitting"));
+
 static cl::opt<bool> EnableGVNSink(
     "enable-gvn-sink", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN sinking pass (default = off)"));
@@ -177,6 +198,14 @@ PassManagerBuilder::PassManagerBuilder() {
     PrepareForThinLTO = EnablePrepareForThinLTO;
     PerformThinLTO = false;
     DivergentTarget = false;
+
+    // Initialization of the global cryptographically
+    // secure pseudo-random generator
+    if(!AesSeed.empty()) {
+        if(!llvm::cryptoutils->prng_seed(AesSeed.c_str())) {
+          exit(1);
+        }
+    }
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -409,6 +438,10 @@ void PassManagerBuilder::populateModulePassManager(
   // Allow forcing function attributes as a debugging and tuning aid.
   MPM.add(createForceFunctionAttrsLegacyPass());
 
+  MPM.add(createSplitBasicBlock(Split));
+  MPM.add(createBogus(BogusControlFlow));
+  MPM.add(createFlattening(Flattening));
+
   // If all optimizations are disabled, just run the always-inline pass and,
   // if enabled, the function merging pass.
   if (OptLevel == 0) {
@@ -428,6 +461,7 @@ void PassManagerBuilder::populateModulePassManager(
     else if (GlobalExtensionsNotEmpty() || !Extensions.empty())
       MPM.add(createBarrierNoopPass());
 
+    MPM.add(createSubstitution(Substitution));
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 
     // Rename anon globals to be able to export them in the summary.
@@ -673,6 +707,7 @@ void PassManagerBuilder::populateModulePassManager(
   // Get rid of LCSSA nodes.
   MPM.add(createInstructionSimplifierPass());
 
+  MPM.add(createSubstitution(Substitution));
   // LoopSink (and other loop passes since the last simplifyCFG) might have
   // resulted in single-entry-single-exit or empty blocks. Clean up the CFG.
   MPM.add(createCFGSimplificationPass());
