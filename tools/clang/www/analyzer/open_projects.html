@@ -1,0 +1,194 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+          "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <title>Open Projects</title>
+  <link type="text/css" rel="stylesheet" href="menu.css">
+  <link type="text/css" rel="stylesheet" href="content.css">
+  <script type="text/javascript" src="scripts/menu.js"></script>  
+</head>
+<body>
+
+<div id="page">
+<!--#include virtual="menu.html.incl"-->
+<div id="content">
+
+<h1>Open Projects</h1>
+
+<p>This page lists several projects that would boost analyzer's usability and 
+power. Most of the projects listed here are infrastructure-related so this list 
+is an addition to the <a href="potential_checkers.html">potential checkers 
+list</a>. If you are interested in tackling one of these, please send an email 
+to the <a href=http://lists.llvm.org/mailman/listinfo/cfe-dev>cfe-dev
+mailing list</a> to notify other members of the community.</p>
+
+<ul>  
+  <li>Core Analyzer Infrastructure
+  <ul>
+    <li>Explicitly model standard library functions with <tt>BodyFarm</tt>.
+    <p><tt><a href="http://clang.llvm.org/doxygen/classclang_1_1BodyFarm.html">BodyFarm</a></tt> 
+    allows the analyzer to explicitly model functions whose definitions are 
+    not available during analysis. Modeling more of the widely used functions 
+    (such as the members of <tt>std::string</tt>) will improve precision of the
+    analysis. 
+    <i>(Difficulty: Easy, ongoing)</i><p>
+    </li>
+
+    <li>Handle floating-point values.
+    <p>Currently, the analyzer treats all floating-point values as unknown.
+    However, we already have most of the infrastructure we need to handle
+    floats: RangeConstraintManager. This would involve adding a new SVal kind
+    for constant floats, generalizing the constraint manager to handle floats
+    and integers equally, and auditing existing code to make sure it doesn't
+    make untoward assumptions.
+    <i> (Difficulty: Medium)</i></p>
+    </li>
+    
+    <li>Implement generalized loop execution modeling.
+    <p>Currently, the analyzer simply unrolls each loop <tt>N</tt> times. This 
+    means that it will not execute any code after the loop if the loop is 
+    guaranteed to execute more than <tt>N</tt> times. This results in lost 
+    basic block coverage. We could continue exploring the path if we could 
+    model a generic <tt>i</tt>-th iteration of a loop.
+    <i> (Difficulty: Hard)</i></p>
+    </li>
+
+    <li>Enhance CFG to model C++ temporaries properly.
+    <p>There is an existing implementation of this, but it's not complete and
+    is disabled in the analyzer.
+    <i>(Difficulty: Medium; current contact: Alex McCarthy)</i></p>    
+
+    <li>Enhance CFG to model exception-handling properly.
+    <p>Currently exceptions are treated as "black holes", and exception-handling
+    control structures are poorly modeled (to be conservative). This could be
+    much improved for both C++ and Objective-C exceptions.
+    <i>(Difficulty: Medium)</i></p>    
+
+    <li>Enhance CFG to model C++ <code>new</code> more precisely.
+    <p>The current representation of <code>new</code> does not provide an easy
+    way for the analyzer to model the call to a memory allocation function
+    (<code>operator new</code>), then initialize the result with a constructor
+    call. The problem is discussed at length in
+    <a href="http://llvm.org/bugs/show_bug.cgi?id=12014">PR12014</a>.
+    <i>(Difficulty: Easy; current contact: Karthik Bhat)</i></p>
+
+    <li>Enhance CFG to model C++ <code>delete</code> more precisely.
+    <p>Similarly, the representation of <code>delete</code> does not include
+    the call to the destructor, followed by the call to the deallocation
+    function (<code>operator delete</code>). One particular issue 
+    (<tt>noreturn</tt> destructors) is discussed in
+    <a href="http://llvm.org/bugs/show_bug.cgi?id=15599">PR15599</a>
+    <i>(Difficulty: Easy; current contact: Karthik Bhat)</i></p>    
+
+    <li>Implement a BitwiseConstraintManager to handle <a href="http://llvm.org/bugs/show_bug.cgi?id=3098">PR3098</a>.
+    <p>Constraints on the bits of an integer are not easily representable as
+    ranges. A bitwise constraint manager would model constraints such as "bit 32
+    is known to be 1". This would help code that made use of bitmasks</code>.
+    <i>(Difficulty: Medium)</i></p>
+    </li>
+
+    <li>Track type info through casts more precisely.
+    <p>The DynamicTypePropagation checker is in charge of inferring a region's
+    dynamic type based on what operations the code is performing. Casts are a
+    rich source of type information that the analyzer currently ignores. They
+    are tricky to get right, but might have very useful consequences.
+    <i>(Difficulty: Medium)</i></p>    
+
+    <li>Design and implement alpha-renaming.
+    <p>Implement unifying two symbolic values along a path after they are 
+    determined to be equal via comparison. This would allow us to reduce the 
+    number of false positives and would be a building step to more advanced 
+    analyses, such as summary-based interprocedural and cross-translation-unit 
+    analysis. 
+    <i>(Difficulty: Hard)</i></p>
+    </li>    
+  </ul>
+  </li>
+
+  <li>Bug Reporting 
+  <ul>
+    <li>Add support for displaying cross-file diagnostic paths in HTML output
+    (used by <tt>scan-build</tt>).
+    <p>Currently <tt>scan-build</tt> output does not display reports that span 
+    multiple files. The main problem is that we do not have a good format to
+    display such paths in HTML output. <i>(Difficulty: Medium)</i> </p>
+    </li>
+    
+    <li>Refactor path diagnostic generation in <a href="http://clang.llvm.org/doxygen/BugReporter_8cpp_source.html">BugReporter.cpp</a>.
+    <p>It would be great to have more code reuse between "Minimal" and 
+    "Extensive" PathDiagnostic generation algorithms. One idea is to create an 
+    IR for representing path diagnostics, which would be later be used to 
+    generate minimal or extensive report output. <i>(Difficulty: Medium)</i></p>
+    </li>
+  </ul>
+  </li>
+
+  <li>Other Infrastructure 
+  <ul>
+    <li>Rewrite <tt>scan-build</tt> (in Python).
+    <p><i>(Difficulty: Easy)</i></p>
+    </li>
+
+    <li>Do a better job interposing on a compilation.
+    <p>Currently, <tt>scan-build</tt> just sets the <tt>CC</tt> and <tt>CXX</tt>
+    environment variables to its wrapper scripts, which then call into an
+    underlying platform compiler. This is problematic for any project that
+    doesn't exclusively use <tt>CC</tt> and <tt>CXX</tt> to control its
+    compilers.
+    <p><i>(Difficulty: Medium-Hard)</i></p>
+    </li>
+
+    <li>Create an <tt>analyzer_annotate</tt> attribute for the analyzer 
+    annotations.
+    <p>We would like to put all analyzer attributes behind a fence so that we 
+    could add/remove them without worrying that compiler (not analyzer) users 
+    depend on them. Design and implement such a generic analyzer attribute in 
+    the compiler. <i>(Difficulty: Medium)</i></p>
+    </li>
+  </ul>
+  </li>
+
+  <li>Enhanced Checks
+  <ul>
+    <li>Implement a production-ready StreamChecker.
+    <p>A SimpleStreamChecker has been presented in the Building a Checker in 24 
+    Hours talk 
+    (<a href="http://llvm.org/devmtg/2012-11/Zaks-Rose-Checker24Hours.pdf">slides</a>
+    <a href="http://llvm.org/devmtg/2012-11/videos/Zaks-Rose-Checker24Hours.mp4">video</a>). 
+    We need to implement a production version of the checker with richer set of 
+    APIs and evaluate it by running on real codebases. 
+    <i>(Difficulty: Easy)</i></p>
+    </li>
+
+    <li>Extend Malloc checker with reasoning about custom allocator, 
+    deallocator, and ownership-transfer functions.
+    <p>This would require extending the MallocPessimistic checker to reason 
+    about annotated functions. It is strongly desired that one would rely on 
+    the <tt>analyzer_annotate</tt> attribute, as described above. 
+    <i>(Difficulty: Easy)</i></p>
+    </li>
+
+    <li>Implement a BitwiseMaskingChecker to handle <a href="http://llvm.org/bugs/show_bug.cgi?id=16615">PR16615</a>.
+    <p>Symbolic expressions of the form <code>$sym &amp; CONSTANT</code> can range from 0 to <code>CONSTANT-</code>1 if CONSTANT is <code>2^n-1</code>, e.g. 0xFF (0b11111111), 0x7F (0b01111111), 0x3 (0b0011), 0xFFFF, etc. Even without handling general bitwise operations on symbols, we can at least bound the value of the resulting expression. Bonus points for handling masks followed by shifts, e.g. <code>($sym &amp; 0b1100) >> 2</code>.
+    <i>(Difficulty: Easy)</i></p>
+    </li>
+
+    <li>Implement iterators invalidation checker.
+    <p><i>(Difficulty: Easy)</i></p>
+    </li>
+    
+    <li>Write checkers which catch Copy and Paste errors.
+    <p>Take a look at the
+    <a href="http://pages.cs.wisc.edu/~shanlu/paper/TSE-CPMiner.pdf">CP-Miner</a>
+    paper for inspiration. 
+    <i>(Difficulty: Medium-Hard; current contacts: Daniel Marjam&auml;ki and Daniel Fahlgren)</i></p>
+    </li>  
+  </ul>
+  </li>
+</ul>
+
+</div>
+</div>
+</body>
+</html>
+
