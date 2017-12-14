@@ -1,5 +1,4 @@
-//===- CryptoUtils.h - Cryptographically Secure Pseudo-Random
-// Generator------------------===//
+//===- CryptoUtils.h - Cryptographically Secure Pseudo-Random Generator ---===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,13 +13,12 @@
 // Created on: 22 juin 2012
 // Author(s): jrinaldini, pjunod
 //===----------------------------------------------------------------------===//
-
-#ifndef LLVM_CryptoUtils_H
-#define LLVM_CryptoUtils_H
+#ifndef _OBFUSCATION_CRYPTUTILS_H
+#define _OBFUSCATION_CRYPTUTILS_H
 
 #include "llvm/Support/ManagedStatic.h"
 
-#include <stdint.h>
+#include <cstdint>
 #include <cstdio>
 #include <string>
 
@@ -38,8 +36,11 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define ENDIAN_LITTLE
 #endif
 #define ENDIAN_32BITWORD
+
+#if !defined(_WIN64) || !defined(_WIN32)
 #ifndef UNALIGNED
 #define UNALIGNED
+#endif
 #endif
 
 #elif defined(__alpha)
@@ -57,7 +58,7 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define ENDIAN_64BITWORD
 #define UNALIGNED
 
-#elif(defined(__R5900) || defined(R5900) || defined(__R5900__)) &&             \
+#elif (defined(__R5900) || defined(R5900) || defined(__R5900__)) &&            \
     (defined(_mips) || defined(__mips__) || defined(mips))
 
 #ifndef ENDIAN_LITTLE
@@ -153,7 +154,7 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
     (x) = ((uint32_t)((y)[3] & 0xFF) << 24) |                                  \
           ((uint32_t)((y)[2] & 0xFF) << 16) |                                  \
           ((uint32_t)((y)[1] & 0xFF) << 8) | ((uint32_t)((y)[0] & 0xFF) << 0); \
-}
+  }
 
 #define LOAD64H(x, y)                                                          \
   {                                                                            \
@@ -181,18 +182,18 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #define CryptoUtils_POOL_SIZE (0x1 << 17) // 2^17
 
 #define DUMP(x, l, s)                                                          \
-  fprintf(stderr, "%s :", (s));                                                \
+  std::fprintf(stderr, "%s :", (s));                                                \
   for (int ii = 0; ii < (l); ii++) {                                           \
-    fprintf(stderr, "%02hhX", *((x) + ii));                                    \
+    std::fprintf(stderr, "%02hhX", *((x) + ii));                                    \
   }                                                                            \
-  fprintf(stderr, "\n");
+  std::fprintf(stderr, "\n");
 
 // SHA256
 /* Various logical functions */
-#define Ch(x, y, z) (z ^ (x &(y ^ z)))
-#define Maj(x, y, z) (((x | y) & z) | (x &y))
+#define Ch(x, y, z) (z ^ (x & (y ^ z)))
+#define Maj(x, y, z) (((x | y) & z) | (x & y))
 #define S(x, n) RORc((x), (n))
-#define R1(x, n) (((x) & 0xFFFFFFFFUL) >> (n))
+#define R1(x, n) (((x)&0xFFFFFFFFUL) >> (n))
 #define Sigma0(x) (S(x, 2) ^ S(x, 13) ^ S(x, 22))
 #define Sigma1(x) (S(x, 6) ^ S(x, 11) ^ S(x, 25))
 #define Gamma0(x) (S(x, 7) ^ S(x, 18) ^ R1(x, 3))
@@ -206,8 +207,8 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
   h = t0 + t1;
 
 #define RORc(x, y)                                                             \
-  (((((unsigned long)(x) & 0xFFFFFFFFUL) >> (unsigned long)((y) & 31)) |       \
-    ((unsigned long)(x) << (unsigned long)(32 - ((y) & 31)))) &                \
+  (((((unsigned long)(x)&0xFFFFFFFFUL) >> (unsigned long)((y)&31)) |           \
+    ((unsigned long)(x) << (unsigned long)(32 - ((y)&31)))) &                  \
    0xFFFFFFFFUL)
 
 class CryptoUtils {
@@ -218,7 +219,7 @@ public:
   char *get_seed();
   void get_bytes(char *buffer, const int len);
   char get_char();
-  bool prng_seed(const std::string seed);
+  bool prng_seed(std::string const &seed);
 
   // Returns a uniformly distributed 8-bit value
   uint8_t get_uint8_t();
@@ -260,7 +261,6 @@ private:
   int sha256_process(sha256_state *md, const unsigned char *in,
                      unsigned long inlen);
 };
-}
+} // namespace llvm
 
-#endif // LLVM_CryptoUtils_H
-
+#endif

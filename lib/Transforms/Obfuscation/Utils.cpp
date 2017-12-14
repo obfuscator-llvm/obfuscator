@@ -1,7 +1,9 @@
 #include "llvm/Transforms/Obfuscation/Utils.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include <sstream>
-#include "llvm/IR/Module.h"
+
+using namespace llvm;
 
 // Shamefully borrowed from ../Scalar/RegToMem.cpp :(
 bool valueEscapes(Instruction *Inst) {
@@ -97,7 +99,7 @@ std::string readAnnotate(Function *f) {
   return annotation;
 }
 
-bool toObfuscate(bool flag, Function *f, std::string attribute) {
+bool toObfuscate(bool flag, Function *f, std::string const &attribute) {
   std::string attr = attribute;
   std::string attrNo = "no" + attr;
 
@@ -107,7 +109,7 @@ bool toObfuscate(bool flag, Function *f, std::string attribute) {
   }
 
   // Check external linkage
-  if(f->hasAvailableExternallyLinkage() != 0) {
+  if (f->hasAvailableExternallyLinkage() != 0) {
     return false;
   }
 
@@ -145,4 +147,3 @@ bool toObfuscate(bool flag, Function *f, std::string attribute) {
 
   return false;
 }
-
