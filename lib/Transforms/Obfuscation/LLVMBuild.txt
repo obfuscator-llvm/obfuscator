@@ -20,4 +20,4 @@ type = Library
 name = Obfuscation
 parent = Transforms
 library_name = Obfuscation
-
+required_libraries = Analysis Core Support TransformUtils
