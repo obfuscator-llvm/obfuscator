@@ -226,3 +226,7 @@ D: llvm-objcopy (tools/llvm-objcopy)
 N: Martin Storsjö
 E: martin@martin.st
 D: MinGW
+
+N: Obfuscator-LLVM team
+E: dev@o-llvm.org
+D: Obfuscator
