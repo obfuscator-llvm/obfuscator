@@ -1,4 +1,5 @@
 add_llvm_library(LLVMObfuscation
+  Obfuscation.cpp
   Substitution.cpp
   BogusControlFlow.cpp
   Utils.cpp

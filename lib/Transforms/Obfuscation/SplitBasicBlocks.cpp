@@ -48,7 +48,7 @@ struct SplitBasicBlock : public FunctionPass {
 char SplitBasicBlock::ID = 0;
 static RegisterPass<SplitBasicBlock> X("splitbbl", "BasicBlock splitting");
 
-Pass *llvm::createSplitBasicBlock(bool flag) {
+FunctionPass *llvm::createSplitBasicBlock(bool flag) {
   return new SplitBasicBlock(flag);
 }
 
@@ -64,6 +64,7 @@ bool SplitBasicBlock::runOnFunction(Function &F) {
 
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "split")) {
+	  outs() << "SplitBasicBlock " << tmp->getName() << "\n"  ;
     split(tmp);
     ++Split;
   }
