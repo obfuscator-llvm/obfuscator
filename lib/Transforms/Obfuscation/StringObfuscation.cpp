@@ -41,6 +41,9 @@ namespace llvm {
         virtual bool runOnModule(Module &M) {
             if(!is_flag)
                 return false;
+
+            outs() << "StringObfuscation " << M.getName() << "\n"  ;
+
             std::vector<GlobalVariable*> toDelConstGlob;
             //std::vector<GlobalVariable*> encGlob;
             std::vector<encVar*> encGlob;
@@ -298,6 +301,6 @@ namespace llvm {
 char StringObfuscationPass::ID = 0;
 static RegisterPass<StringObfuscationPass> X("GVDiv", "Global variable (i.e., const char*) diversification pass");
 
-Pass * llvm::createStringObfuscation(bool flag) {
+ModulePass * llvm::createStringObfuscation(bool flag) {
     return new StringObfuscationPass(flag);
 }

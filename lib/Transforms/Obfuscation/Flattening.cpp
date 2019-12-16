@@ -38,12 +38,13 @@ struct Flattening : public FunctionPass {
 
 char Flattening::ID = 0;
 static RegisterPass<Flattening> X("flattening", "Call graph flattening");
-Pass *llvm::createFlattening(bool flag) { return new Flattening(flag); }
+FunctionPass *llvm::createFlattening(bool flag) { return new Flattening(flag); }
 
 bool Flattening::runOnFunction(Function &F) {
   Function *tmp = &F;
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "fla")) {
+	outs() << "Flattening " << tmp->getName() << "\n"  ;
     if (flatten(tmp)) {
       ++Flattened;
     }

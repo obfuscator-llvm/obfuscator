@@ -30,8 +30,7 @@ using namespace llvm;
 using namespace std;
 
 namespace llvm {
-	Pass *createSubstitution ();
-	Pass *createSubstitution (bool flag);
+	FunctionPass *createSubstitution (bool flag);
 }
 
 #endif

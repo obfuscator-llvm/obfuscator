@@ -31,8 +31,8 @@
 using namespace std;
 
 namespace llvm {
-	Pass *createFlattening();
-	Pass *createFlattening(bool flag);
+	//Pass *createFlattening();
+	FunctionPass *createFlattening(bool flag);
 }
 
 #endif

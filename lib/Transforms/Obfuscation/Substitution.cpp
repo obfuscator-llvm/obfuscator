@@ -102,7 +102,7 @@ struct Substitution : public FunctionPass {
 
 char Substitution::ID = 0;
 static RegisterPass<Substitution> X("substitution", "operators substitution");
-Pass *llvm::createSubstitution(bool flag) { return new Substitution(flag); }
+FunctionPass *llvm::createSubstitution(bool flag) { return new Substitution(flag); }
 
 bool Substitution::runOnFunction(Function &F) {
    // Check if the percentage is correct
@@ -114,6 +114,7 @@ bool Substitution::runOnFunction(Function &F) {
   Function *tmp = &F;
   // Do we obfuscate
   if (toObfuscate(flag, tmp, "sub")) {
+	outs() << "Substitution " << tmp->getName() << "\n"  ;
     substitute(tmp);
 	return true;
   }

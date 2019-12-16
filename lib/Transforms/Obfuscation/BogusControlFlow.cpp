@@ -140,6 +140,7 @@ namespace {
       // If bcf annotations
       if( toObfuscate(flag,&F,"bcf") ) {
         if( false == isInvoke( &F ) ) {
+          outs() << "BogusControlFlow " << F.getName() << "\n"  ;
           bogus(F);
           doF(*F.getParent());
           return true;
@@ -617,10 +618,10 @@ namespace {
 char BogusControlFlow::ID = 0;
 static RegisterPass<BogusControlFlow> X("boguscf", "inserting bogus control flow");
 
-Pass *llvm::createBogus() {
-  return new BogusControlFlow();
-}
+//Pass *llvm::createBogus() {
+//  return new BogusControlFlow();
+//}
 
-Pass *llvm::createBogus(bool flag) {
+FunctionPass *llvm::createBogus(bool flag) {
   return new BogusControlFlow(flag);
 }
