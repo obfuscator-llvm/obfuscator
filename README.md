@@ -2,7 +2,7 @@ Please have a look at the [wiki](https://github.com/obfuscator-llvm/obfuscator/w
 
 Current (official) version: [LLVM-4.0](https://github.com/obfuscator-llvm/obfuscator/tree/llvm-4.0)
 
-Current version on this repo is [LLVM-8.0.0](https://github.com/ita-msc/obfuscator/tree/llvm-8.0.0)
+Current version on this repo is [LLVM-8.0.0](https://github.com/spelle/obfuscator/tree/llvm-8.0.0)
 
 You can cite Obfuscator-LLVM using the following Bibtex entry:
 
@@ -24,7 +24,7 @@ You can cite Obfuscator-LLVM using the following Bibtex entry:
   ## Clone the repo
 
 ```
-git clone https://github.com/ita-msc/obfuscator -b llvm-8.0.0 obfuscator-llvm-8.0.0.src
+git clone https://github.com/spelle/obfuscator -b llvm-8.0.0 obfuscator-llvm-8.0.0.src
 ```
 
   ## Retrieve dependencies
