@@ -127,3 +127,11 @@ export TOOLCHAINS="LLVM8.0.0"
 ```
 
 In Xcode.app, you can select `Xcode -> Toolchains -> org.llvm.8.0.0` in the menu.
+
+### Brew
+
+Command line used :
+
+```
+cmake -G Unix Makefiles .. -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG -DCMAKE_CXX_FLAGS_RELEASE=-DNDEBUG -DCMAKE_INSTALL_PREFIX=/usr/local/Cellar/llvm/9.0.0 -DCMAKE_BUILD_TYPE=Release
+```
