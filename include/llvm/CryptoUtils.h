@@ -63,12 +63,12 @@ extern ManagedStatic<CryptoUtils> cryptoutils;
 #endif
 #define ENDIAN_64BITWORD
 
-#elif defined(__sparc)
+#elif defined(__sparc) || defined(__aarch64__)
 
 #ifndef ENDIAN_BIG
 #define ENDIAN_BIG
 #endif
-#if defined(__arch64__)
+#if defined(__aarch64__)
 #define ENDIAN_64BITWORD
 #else
 #define ENDIAN_32BITWORD
