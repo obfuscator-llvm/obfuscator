@@ -1,0 +1,4 @@
+build_debug/*
+build_release/*
+llvm/cmake-build-debug/*
+llvm/cmake-build-release/*

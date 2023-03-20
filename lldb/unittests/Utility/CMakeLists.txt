@@ -1,0 +1,55 @@
+add_lldb_unittest(UtilityTests
+  AnsiTerminalTest.cpp
+  ArgsTest.cpp
+  OptionsWithRawTest.cpp
+  ArchSpecTest.cpp
+  BroadcasterTest.cpp
+  CleanUpTest.cpp
+  ConstStringTest.cpp
+  CompletionRequestTest.cpp
+  DataExtractorTest.cpp
+  EnvironmentTest.cpp
+  EventTest.cpp
+  FileCollectorTest.cpp
+  FileSpecTest.cpp
+  FlagsTest.cpp
+  JSONTest.cpp
+  ListenerTest.cpp
+  LogTest.cpp
+  NameMatchesTest.cpp
+  PredicateTest.cpp
+  ProcessInfoTest.cpp
+  RangeMapTest.cpp
+  RangeTest.cpp
+  RegisterValueTest.cpp
+  ReproducerTest.cpp
+  ReproducerInstrumentationTest.cpp
+  ScalarTest.cpp
+  StateTest.cpp
+  StatusTest.cpp
+  StreamTeeTest.cpp
+  StreamTest.cpp
+  StringExtractorTest.cpp
+  StringLexerTest.cpp
+  StringListTest.cpp
+  StructuredDataTest.cpp
+  TildeExpressionResolverTest.cpp
+  TimeoutTest.cpp
+  TimerTest.cpp
+  UriParserTest.cpp
+  UserIDResolverTest.cpp
+  UUIDTest.cpp
+  VASprintfTest.cpp
+  VMRangeTest.cpp
+
+  LINK_LIBS
+      lldbUtility
+      lldbUtilityHelpers
+      LLVMTestingSupport
+  LINK_COMPONENTS
+    Support
+  )
+
+add_unittest_inputs(UtilityTests
+  StructuredData-basic.json
+  )

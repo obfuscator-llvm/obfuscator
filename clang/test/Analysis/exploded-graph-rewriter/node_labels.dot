@@ -1,0 +1,44 @@
+// RUN: %exploded_graph_rewriter %s \
+// RUN:     | FileCheck %s -check-prefixes=CHECK,LIGHT,COLOR
+// RUN: %exploded_graph_rewriter %s --dark \
+// RUN:     | FileCheck %s -check-prefixes CHECK,DARK,COLOR
+// RUN: %exploded_graph_rewriter %s --gray \
+// RUN:     | FileCheck %s -check-prefixes=CHECK,LIGHT,GRAY
+// RUN: %exploded_graph_rewriter %s --gray --dark \
+// RUN:     | FileCheck %s -check-prefixes CHECK,DARK,GRAY
+
+// FIXME: Substitution doesn't seem to work on Windows.
+// UNSUPPORTED: system-windows
+
+// LIGHT: Node0x1 [shape=record,label=<
+// DARK:  Node0x1 [shape=record,color="white",fontcolor="gray80",label=<
+// CHECK-SAME:   <tr>
+// LIGHT-SAME:     <td bgcolor="gray">
+// DARK-SAME:      <td bgcolor="gray20">
+// CHECK-SAME:       <b>Node 1 (0x1) - State Unspecified</b>
+// CHECK-SAME:     </td>
+// CHECK-SAME:   </tr>
+Node0x1 [shape=record,label=
+ "{
+    { "node_id": 1, "pointer": "0x1", "has_report": false, "is_sink": false,
+      "program_state": null,
+      "program_points": []
+    }
+\l}"];
+
+// CHECK: Node0x2 [
+// CHECK-SAME: <tr><td>
+// COLOR-SAME:   <font color="red"><b>Bug Report Attached</b></font>
+// GRAY-SAME:    <b>Bug Report Attached</b>
+// CHECK-SAME: </td></tr>
+// CHECK-SAME: <tr><td>
+// COLOR-SAME:   <font color="cornflowerblue"><b>Sink Node</b></font>
+// GRAY-SAME:    <b>Sink Node</b>
+// CHECK-SAME: </td></tr>
+Node0x2 [shape=record,label=
+ "{
+    { "node_id": 2, "pointer": "0x2", "has_report": true, "is_sink": true,
+      "program_state": null,
+      "program_points": []
+    }
+\l}"];
