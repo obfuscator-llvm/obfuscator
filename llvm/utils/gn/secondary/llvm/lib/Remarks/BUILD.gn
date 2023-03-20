@@ -1,0 +1,15 @@
+static_library("Remarks") {
+  output_name = "LLVMRemarks"
+  deps = [
+    "//llvm/lib/Support",
+  ]
+
+  sources = [
+    "Remark.cpp",
+    "RemarkFormat.cpp",
+    "RemarkParser.cpp",
+    "RemarkStringTable.cpp",
+    "YAMLRemarkParser.cpp",
+    "YAMLRemarkSerializer.cpp",
+  ]
+}

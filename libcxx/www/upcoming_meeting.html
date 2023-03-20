@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+          "http://www.w3.org/TR/html4/strict.dtd">
+<!-- Material used from: HTML 4.01 specs: http://www.w3.org/TR/html401/ -->
+<html>
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <title>libc++ Upcoming Meeting Status</title>
+  <link type="text/css" rel="stylesheet" href="menu.css">
+  <link type="text/css" rel="stylesheet" href="content.css">
+</head>
+
+<body>
+<div id="menu">
+  <div>
+    <a href="https://llvm.org/">LLVM Home</a>
+  </div>
+
+  <div class="submenu">
+    <label>libc++ Info</label>
+    <a href="/index.html">About</a>
+  </div>
+
+  <div class="submenu">
+    <label>Quick Links</label>
+    <a href="https://lists.llvm.org/mailman/listinfo/cfe-dev">cfe-dev</a>
+    <a href="https://lists.llvm.org/mailman/listinfo/cfe-commits">cfe-commits</a>
+    <a href="https://bugs.llvm.org/">Bug Reports</a>
+    <a href="https://github.com/llvm/llvm-project/tree/master/libcxx/">Browse Sources</a>
+  </div>
+</div>
+
+<div id="content">
+  <!--*********************************************************************-->
+  <h1>libc++ Upcoming Meeting Status</h1>
+  <!--*********************************************************************-->
+
+  <p>This is a temporary page; please check the c++2a status <a href="cxx2a_status.html">here</a></p>
+  <p>This page shows the status of the papers and issues that are expected to be adopted in the next WG21 Meeting.</p>
+
+  <p>The groups that have contributed papers:
+  <ul>
+    <li>LWG - Library working group</li>
+    <li>CWG - Core Language Working group</li>
+    <li>SG1 - Study group #1 (Concurrency working group)</li>
+  </ul>
+  </p>
+
+  <h3>Paper Status</h3>
+	<table border="1">
+	<tr><th>Paper #</th><th>Group</th><th>Paper Name</th><th>Meeting</th><th>Status</th></tr>
+	<tr><td><a href="https://wg21.link/P0553R4">P0553R4</a></td><td>LWG</td><td>Bit Operations</td><td>Cologne</td><td>Complete</td></tr>
+	<tr><td><a href="https://wg21.link/P1355R2">P1355R2</a></td><td>LWG</td><td>Exposing a narrow contract for ceil2</td><td>Cologne</td><td>Complete</td></tr>
+	</table>
+
+
+  <h3>Library Working group Issues Status</h3>
+  <table id="issues" border="1">
+	<tr><th>Issue #</th><th>Issue Name</th><th>Meeting</th><th>Status</th></tr>
+
+<table border="1">
+<tr><th>Issue #</th><th>Has P/R</th><th>Issue Name</th><th>Meeting</th><th>Status</th></tr>
+<tr><td><a href="https://wg21.link/LWG2899">2899</a></td><td>Yes</td><td><tt>is_(nothrow_)move_constructible</tt> and <tt>tuple</tt>, <tt>optional</tt> and <tt>unique_ptr</tt></td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3055">3055</a></td><td>Yes</td><td><tt>path::operator+=(<i>single-character</i>)</tt> misspecified</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3158">3158</a></td><td>Yes</td><td><tt>tuple(allocator_arg_t, const Alloc&amp;)</tt> should be conditionally explicit</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3169">3169</a></td><td>Yes</td><td><tt>ranges</tt> permutation generators discard useful information</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3183">3183</a></td><td>Yes</td><td>Normative permission to specialize Ranges variable templates</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3184">3184</a></td><td>Yes</td><td>Inconsistencies in <tt>bind_front</tt> wording</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3185">3185</a></td><td>Yes</td><td>Uses-allocator construction functions missing <tt>constexpr</tt> and <tt>noexcept</tt></td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3186">3186</a></td><td>Yes</td><td><tt>ranges</tt> removal, partition, and <tt>partial_sort_copy</tt> algorithms discard useful information</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3187">3187</a></td><td>Yes</td><td><a href="https://wg21.link/p0591r4">P0591R4</a> reverted DR 2586 fixes to <tt>scoped_allocator_adaptor::construct()</tt></td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3191">3191</a></td><td>Yes</td><td><tt>std::ranges::shuffle</tt> synopsis does not match algorithm definition</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3196">3196</a></td><td>Yes</td><td><tt>std::optional&lt;T&gt;</tt> is ill-formed is <tt>T</tt> is an array</td><td>Cologne</td><td>Complete</td></tr>
+<tr><td><a href="https://wg21.link/LWG3198">3198</a></td><td>Yes</td><td>Bad constraint on <tt>std::span::span()</tt></td><td>Cologne</td><td>Complete</td></tr>
+<tr><td><a href="https://wg21.link/LWG3199">3199</a></td><td>Yes</td><td><tt>istream &gt;&gt; bitset&lt;0&gt;</tt> fails</td><td>Cologne</td><td></td></tr>
+<tr><td><a href="https://wg21.link/LWG3202">3202</a></td><td>Yes</td><td>P0318R1 was supposed to be revised</td><td>Cologne</td><td>Complete</td></tr>
+<tr><td><a href="https://wg21.link/LWG3206">3206</a></td><td>Yes</td><td><tt>year_month_day</tt> conversion to <tt>sys_days</tt> uses not-existing member function</td><td>Cologne</td><td>Complete</td></tr>
+<tr><td><a href="https://wg21.link/LWG3208">3208</a></td><td>Yes</td><td><tt>Boolean</tt>'s expression requirements are ordered inconsistently</td><td>Cologne</td><td>Nothing to do</td></tr>
+<tr><td><a href="https://wg21.link/LWG3209">3209</a></td><td>Yes</td><td>Expression in <tt>year::ok()</tt> returns clause is ill-formed</td><td>Cologne</td><td>Complete</td></tr>
+</table>
+</table>
+
+<h3>Issues to "Review"</h3>
+<table border="1">
+<tr><th>Issue #</th><th>Issue Name</th><th>Meeting</th><th>Status</th></tr>
+</table>
+
+<h3>Comments about the papers</h3>
+<ul>
+<li>P0553R4 - Marshall to updated existing patch (51262)</li>
+<li>P1355R2 - Paper in the mailing; Marshall to handle as part of 553/556</li>
+</ul>
+
+
+<h3>Comments about the issues</h3>
+<ul>
+<li>2899 - Louis</li>
+<li>3055 - Eric?</li>
+<li>3158 - Louis</li>
+<li>3169 - We don't do ranges yet</li>
+<li>3183 - We don't do ranges yet</li>
+<li>3184 - We don't do bind_front yet</li>
+<li>3185 - Let's make sure that the patch up for review does this (D58879)</li>
+<li>3186 - We don't do ranges yet</li>
+<li>3187 - We need to make sure this is fixed when we land PMRs</li>
+<li>3191 - We don't do ranges yet</li>
+<li>3196 - We already do this</li>
+<li>3198 - We already do this</li>
+<li>3199 - Louis</li>
+<li>3202 - We already do this</li>
+<li>3206 - We already do this; added a couple of explicit tests</li>
+<li>3208 - Nothing to do; wording cleanup</li>
+<li>3209 - We already do the right thing</li>
+</ul>
+
+
+
+<p>Last Updated: 1-Jul-2019</p>
+</div>
+</body>
+</html>
